@@ -1,45 +1,88 @@
-use std::{fs, path::PathBuf};
+use std::{collections::{HashMap, HashSet}, fs, path::PathBuf, sync::{Arc, LazyLock, OnceLock}};
 use bytes::Bytes;
 use clap::Parser;
 use crab_nbt::{Nbt, NbtCompound, NbtTag};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use mca::{RawChunk, RegionReader, RegionWriter};
-use tokio::task::JoinSet;
+use tokio::{sync::Mutex, task::JoinSet};
 use uuid::Uuid;
 use anyhow::Result;
 
-const PATH: &str = "/server/world";
-
 #[derive(Parser)]
 #[command(name = "uuid_remap")]
-#[command(about = "快速改变存档中出现的uuid")]
+#[command(about = "快速改变存档中的uuid")]
 struct Args {
-    /// world目录
-    #[arg(long, value_name = "Path of world")]
+    /// world目录位置
+    #[arg(long, value_name = "path")]
     world: String,
-    
-    /// 是否启用详细输出
-    #[arg(short, long)]
-    verbose: bool,
+
+    /// 映射文件位置
+    #[arg(long, value_name = "path")]
+    map: String,
+
+    /// 是否仅探测不写入
+    #[arg(long, default_value_t = false)]
+    dry: bool, 
 }
 
+static ARGS: LazyLock<Args> = LazyLock::new(|| {
+    Args::parse()
+});
+
+static MAP: OnceLock<HashMap<String, String>> = OnceLock::new();
 
 #[tokio::main]
 async fn main() {
-    let args = Args::parse();
+    let _ = MAP.get_or_init(init_map);
 
-    let a = get_all_mca(&format!(".{PATH}"));
+    let a = get_all_mca(&ARGS.world);
 
     // println!("{:?}", a);
     let mut tasks = JoinSet::new();
+    let mpb = Arc::new(MultiProgress::new());
+
+    let pro = Arc::new(Processer::new(&mpb));
+
+    let pb = Arc::new(mpb.add(ProgressBar::new(a.len() as u64)));
+    pb.set_style(ProgressStyle::with_template("[{spinner}] {prefix} {pos}/{len}").unwrap_or(ProgressStyle::default_bar()).tick_chars("-\\|/"));
+    pb.set_prefix("映射中");
 
     for path in a {
-        println!("processing: {:?}", path);
-        tasks.spawn(process_mca(path));
+        let p = Arc::clone(&pro);
+        let pb = Arc::clone(&pb);
+        tasks.spawn(async move {
+            match p.process_mca(&path).await {
+                Ok(_) => {
+                    p.success.lock().await.insert(path);
+                },
+                Err(_) => {
+                    p.failed.lock().await.insert(path);
+                },
+            }
+
+            pb.inc(1);
+        });
     }
 
     while let Some(_) = tasks.join_next().await {}
-    
+
+    pb.finish_and_clear();
+
     println!("所有文件处理完成");
+    println!("成功: {}", pro.success.lock().await.len());
+    let failed = pro.failed.lock().await;
+    let failed_len = failed.len();
+
+    if failed_len > 0 {
+        println!("失败: {}", failed_len);
+        for mca_file in failed.iter() {
+            println!("- {}", mca_file.to_str().unwrap_or("UNKNOWN"))
+        }
+        println!("以上是失败的文件")
+    }
+    if ARGS.dry {
+        println!("由于启用了 --dry 参数，并未写入任何文件");
+    }
 }
 
 fn get_all_mca(dir: &str) -> Vec<PathBuf> {
@@ -50,48 +93,105 @@ fn get_all_mca(dir: &str) -> Vec<PathBuf> {
             let path = entry.path();
             if let Some(extension) = path.extension() && extension == "mca" {
                 files.push(path);
-            } else if path.is_dir() {
-                files.extend(get_all_mca(path.to_str().unwrap()));
+            } else if path.is_dir() && let Some(path) = path.to_str() {
+                files.extend(get_all_mca(path));
             }
         }
     }
-    
+
     files
 }
 
-async fn process_mca(path: PathBuf) -> Result<()> {
-    let f = fs::read(path).unwrap();
-
-    let region = match RegionReader::new(&f) {
-        Ok(region) => region,
-        Err(e) => return Ok(())
-    };
-    let mut new_region = RegionWriter::new();
-
-    for z in 0..=31u8 {
-        for x in 0..=31u8 {
-            if let Ok(chunk) = region.get_chunk(x as usize, z as usize) && let Some(chunk) = chunk {
-                let compression_type = chunk.get_compression_type();
-
-                let data = process_chunk(chunk).unwrap();
-
-                // new_region.push_chunk_with_compression(&data, (x, z), compression_type).unwrap();
+fn init_map() -> HashMap<String, String> {
+    match fs::read_to_string(&ARGS.map) {
+        Ok(map_file) => match serde_json::from_str(&map_file) {
+            Ok(map) => map,
+            Err(e) => {
+                println!("无法读取 {}: {}", ARGS.map, e);
+                std::process::exit(1);
             }
+        },
+        Err(e) => {
+            println!("无法读取 {}: {}", ARGS.map, e);
+            std::process::exit(1);
         }
-    };
+    }
+}
 
-    Ok(())
+fn remap(uuid: String) -> String {
+    if let Some(new) = MAP.get_or_init(init_map).get(&uuid) {
+        // println!("find uuid: {}", uuid);
+        new.clone()
+    } else {
+        uuid
+    }
+}
 
-    // let mut newf = fs::File::create(format!(".{PATH}")).unwrap();
-    // new_region.write(&mut newf).unwrap();
+struct Processer {
+    success: Mutex<HashSet<PathBuf>>,
+    failed: Mutex<HashSet<PathBuf>>,
+
+    pb: Arc<MultiProgress>,
+    pb_style: ProgressStyle
+}
+
+impl Processer {
+    fn new(pb: &Arc<MultiProgress>) -> Self {
+        Self {
+            success: Mutex::new(HashSet::new()),
+            failed: Mutex::new(HashSet::new()),
+
+            pb: Arc::clone(pb),
+            pb_style: ProgressStyle::with_template("{prefix} [{wide_bar:.green/red}] {pos}/{len}").unwrap_or(ProgressStyle::default_bar()).progress_chars("--")
+        }
+    }
+
+    async fn process_mca(&self, path: &PathBuf) -> Result<()> {
+        // println!("processing: {:?}", path);
+        let mca_file = fs::read(&path)?;
+
+        let region = match RegionReader::new(&mca_file) {
+            Ok(region) => region,
+            Err(_) => return Ok(())
+        };
+
+        let mut new_region = RegionWriter::new();
+        let pb = self.pb.add(ProgressBar::new(32 * 32));
+
+        pb.set_style(self.pb_style.clone());
+        pb.set_prefix(format!("{}", path.to_str().unwrap_or("UNKNOWN")));
+
+        for z in 0..=31u8 {
+            for x in 0..=31u8 {
+                if let Ok(chunk) = region.get_chunk(x as usize, z as usize) && let Some(chunk) = chunk {
+                    let compression_type = chunk.get_compression_type();
+
+                    let data = process_chunk(chunk)?;
+
+                    new_region.push_chunk_with_compression(&data, (x, z), compression_type)?;
+                    pb.inc(1);
+                }
+            }
+        };
+
+        pb.finish_and_clear();
+
+        if !ARGS.dry {
+            let mut newf = fs::File::create(&path)?;
+            new_region.write(&mut newf)?;
+        } else {
+            // println!("dry mode on, wont write")
+        }
+
+        // println!("done: {:?}", path);
+        Ok(())
+    }
 }
 
 fn process_chunk(chunk: RawChunk) -> Result<Bytes> {
     let c = chunk.decompress()?;
 
     let nbt = Nbt::read(&mut c.as_slice())?;
-
-    // println!("{:?}", nbt);
 
     let new_nbt = process_compound(
         &NbtCompound::from(nbt), 
@@ -105,12 +205,12 @@ fn process_chunk(chunk: RawChunk) -> Result<Bytes> {
                         let new_tag = process_compound(
                             nbt_tag.extract_compound()?, 
                             |tag_name, nbt_tag| {
-                                if tag_name == "UUID" {
-                                    let uuid = i32s_to_uuid4(nbt_tag.extract_int_array()?);
-                                    // println!("find uuid: {}", uuid);
+                                // 生物自身UUID
+                                if tag_name == "UUID" && let Ok(uuid_new) = uuid_string_to_i32s(&remap(i32s_to_uuid4(nbt_tag.extract_int_array()?).to_string())) {
+                                    Some(uuid_new.to_vec().into())
+                                } else {
+                                    Some(nbt_tag.clone())
                                 }
-
-                                Some(nbt_tag.clone())
                             }
                         )?;
 
@@ -123,11 +223,13 @@ fn process_chunk(chunk: RawChunk) -> Result<Bytes> {
 
             Some(new_tag)
         }
-    ).unwrap();
+    );
 
-    // println!("{:?}", r);
-
-    Ok(Nbt::new("".to_string(), new_nbt).write())
+    if let Some(new_nbt) = new_nbt {
+        Ok(Nbt::new("".to_string(), new_nbt).write())
+    } else {
+        Err(anyhow::Error::msg("无法构建NBT"))
+    }
 }
 
 fn process_compound(compound: &NbtCompound, handler: fn(&String, &NbtTag) -> Option<NbtTag>) -> Option<NbtCompound> {
