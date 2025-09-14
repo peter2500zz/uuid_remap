@@ -4,7 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.99"
+bytes = "1.10.1"
+clap = { version = "4.5.47", features = ["derive"] }
 crab_nbt = "0.2.11"
 flate2 = "1.1.2"
 mca = "1.1.0"
+tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread"] }
 uuid = { version = "1.18.1", features = ["serde", "v4"] }
