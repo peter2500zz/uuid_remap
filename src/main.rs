@@ -1,8 +1,8 @@
 mod chunk;
+mod utils;
 
-use std::{collections::{HashMap, HashSet}, fs, path::PathBuf, sync::{Arc, LazyLock, OnceLock}};
+use std::{collections::{HashMap, HashSet}, fs, path::PathBuf, sync::{Arc, LazyLock}};
 use clap::Parser;
-use crab_nbt::{NbtCompound, NbtTag};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use mca::{RegionReader, RegionWriter};
 use tokio::{sync::Mutex, task::JoinSet};
@@ -10,6 +10,7 @@ use uuid::Uuid;
 use anyhow::Result;
 
 use chunk::ChunkProcesser;
+use utils::*;
 
 #[derive(Parser)]
 #[command(name = "uuid_remap")]
@@ -32,11 +33,12 @@ static ARGS: LazyLock<Args> = LazyLock::new(|| {
     Args::parse()
 });
 
-static MAP: OnceLock<HashMap<Uuid, Uuid>> = OnceLock::new();
 
 #[tokio::main]
 async fn main() {
-    let _ = MAP.get_or_init(init_map);
+    let map = Arc::new(init_map());
+
+    // println!("{:#?}", map);
 
     let a = get_all_mca(&ARGS.world);
 
@@ -44,7 +46,7 @@ async fn main() {
     let mut tasks = JoinSet::new();
     let mpb = Arc::new(MultiProgress::new());
 
-    let pro = Arc::new(Processer::new(&mpb));
+    let pro = Arc::new(Processer::new(&mpb, map));
 
     let pb = Arc::new(mpb.add(ProgressBar::new(a.len() as u64)));
     pb.set_style(ProgressStyle::with_template("[{spinner}] {prefix} {pos}/{len}").unwrap_or(ProgressStyle::default_bar()).tick_chars("-\\|/"));
@@ -114,65 +116,23 @@ fn get_all_mca(dir: &str) -> Vec<PathBuf> {
     files
 }
 
-fn init_map() -> HashMap<Uuid, Uuid> {
-    match fs::read_to_string(&ARGS.map) {
-        Ok(map_file) => match serde_json::from_str::<HashMap<String, String>>(&map_file) {
-            Ok(map) => {
-                let mut new_map = HashMap::new();
-                for (key, value) in &map {
-                    let new_key =  match Uuid::parse_str(key) {
-                        Ok(key) => key,
-                        Err(e) => {
-                            println!("错误的UUID {}: {}", key, e);
-                            std::process::exit(1);
-                        }
-                    };
-
-                    let new_value =  match Uuid::parse_str(value) {
-                        Ok(value) => value,
-                        Err(e) => {
-                            println!("错误的UUID {}: {}", value, e);
-                            std::process::exit(1);
-                        }
-                    };
-
-                    new_map.insert(new_key, new_value);
-                }
-
-                new_map
-            },
-            Err(e) => {
-                println!("无法读取 {}: {}", ARGS.map, e);
-                std::process::exit(1);
-            }
-        },
-        Err(e) => {
-            println!("无法读取 {}: {}", ARGS.map, e);
-            std::process::exit(1);
-        }
-    }
-}
-
-/// 尝试从UUID映射表中获取对应UUID
-fn remap(uuid: Uuid) -> Option<Uuid> {
-    MAP.get_or_init(init_map).get(&uuid).cloned()
-}
-
 struct Processer {
     success: Mutex<HashSet<PathBuf>>,
     failed: Mutex<HashSet<PathBuf>>,
     find: Arc<std::sync::Mutex<HashMap<Uuid, u32>>>,
+    map: Arc<HashMap<Uuid, Uuid>>,
 
     pb: Arc<MultiProgress>,
     pb_style: ProgressStyle
 }
 
 impl Processer {
-    fn new(pb: &Arc<MultiProgress>) -> Self {
+    fn new(pb: &Arc<MultiProgress>, map: Arc<HashMap<Uuid, Uuid>>) -> Self {
         Self {
             success: Mutex::new(HashSet::new()),
             failed: Mutex::new(HashSet::new()),
             find: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            map,
 
             pb: Arc::clone(pb),
             pb_style: ProgressStyle::with_template("{prefix} [{wide_bar:.green/red}] {pos}/{len}").unwrap_or(ProgressStyle::default_bar()).progress_chars("--")
@@ -192,7 +152,7 @@ impl Processer {
         let mut new_region = RegionWriter::new();
         let pb = self.pb.add(ProgressBar::new(32 * 32));
 
-        let cp = ChunkProcesser::new(Arc::clone(&self.find));
+        let cp = ChunkProcesser::new(Arc::clone(&self.find), Arc::clone(&self.map));
 
         // 设置进度条样式
         pb.set_style(self.pb_style.clone());
@@ -225,57 +185,3 @@ impl Processer {
     }
 }
 
-
-
-fn process_compound<F>(compound: &NbtCompound, handler: F) -> Option<NbtCompound>
-where
-    F: Fn(&String, &NbtTag) -> Option<NbtTag>,
-{
-    let mut new_compound = NbtCompound::new();
-
-    for (tag_name, nbt_tag) in &compound.child_tags {
-        new_compound.put(tag_name.clone(), handler(tag_name, nbt_tag)?);
-    }
-
-    Some(new_compound)
-}
-
-fn process_list<F>(list: &Vec<NbtTag>, handler: F) -> Option<Vec<NbtTag>>
-where
-    F: Fn(&NbtTag) -> Option<NbtTag>,
-{
-    let mut new_list = Vec::new();
-
-    for nbt_tag in list {
-        new_list.push(handler(nbt_tag)?);
-    }
-
-    Some(new_list)
-}
-
-fn i32s_to_uuid4(values: &[i32]) -> Uuid {
-    // 将4个i32转换为16字节数组（大端序）
-    let mut bytes = [0u8; 16];
-    
-    bytes[0..4].copy_from_slice(&values[0].to_be_bytes());
-    bytes[4..8].copy_from_slice(&values[1].to_be_bytes());
-    bytes[8..12].copy_from_slice(&values[2].to_be_bytes());
-    bytes[12..16].copy_from_slice(&values[3].to_be_bytes());
-    
-    // 设置版本位（版本4）和变体位
-    bytes[6] = (bytes[6] & 0x0F) | 0x40; // 版本4
-    bytes[8] = (bytes[8] & 0x3F) | 0x80; // 变体位
-    
-    Uuid::from_bytes(bytes)
-}
-
-fn uuid4_to_i32s(uuid: Uuid) -> [i32; 4] {
-    let bytes = uuid.as_bytes();
-    
-    let high = i32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
-    let mid_high = i32::from_be_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
-    let mid_low = i32::from_be_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]);
-    let low = i32::from_be_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]);
-    
-    [high, mid_high, mid_low, low]
-}
