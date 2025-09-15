@@ -166,7 +166,7 @@ impl NbtProcesser {
 
 #[tokio::test]
 async fn g() {
-    let c = vec![-346108821, -1882835125, -1603894003, 311331491];
+    let c = vec![-738827522, 1439253113, -2024201438, 689481076];
 
     println!("{:?}", i32s_to_uuid4(&c));
 }
