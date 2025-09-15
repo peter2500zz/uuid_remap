@@ -5,7 +5,8 @@ use mca::RawChunk;
 use anyhow::Result;
 use uuid::Uuid;
 
-use crate::utils::*;
+use crate::utils::nbt_process::*;
+use crate::utils::uuid_tools::*;
 
 pub struct ChunkProcesser {
     find: Arc<Mutex<HashMap<Uuid, u32>>>,

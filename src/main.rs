@@ -20,13 +20,25 @@ struct Args {
     #[arg(long, value_name = "path")]
     world: String,
 
-    /// 映射文件位置
+    /// json映射文件位置
     #[arg(long, value_name = "path")]
     map: String,
 
-    /// 是否仅探测不写入
+    /// 仅探测不写入
     #[arg(long, default_value_t = false)]
     dry: bool, 
+
+    /// 忽略方块
+    #[arg(long, default_value_t = false)]
+    ignore_region: bool, 
+
+    /// 忽略实体
+    #[arg(long, default_value_t = false)]
+    ignore_entities: bool,
+
+    /// 忽略兴趣点
+    #[arg(long, default_value_t = false)]
+    ignore_poi: bool, 
 }
 
 static ARGS: LazyLock<Args> = LazyLock::new(|| {
@@ -106,6 +118,14 @@ fn get_all_mca(dir: &str) -> Vec<PathBuf> {
         for entry in entries.flatten() {
             let path = entry.path();
             if let Some(extension) = path.extension() && extension == "mca" {
+                if let Some(parent) = path.parent() && let Some(file_name) = parent.file_name() {
+                    if (file_name == "region" && ARGS.ignore_region) ||
+                    (file_name == "entities" && ARGS.ignore_entities) ||
+                    (file_name == "poi" && ARGS.ignore_poi)
+                    {
+                        continue;
+                    }
+                }
                 files.push(path);
             } else if path.is_dir() && let Some(path) = path.to_str() {
                 files.extend(get_all_mca(path));
@@ -117,7 +137,7 @@ fn get_all_mca(dir: &str) -> Vec<PathBuf> {
 }
 
 struct Processer {
-    success: Mutex<HashSet<PathBuf>>,
+    success: Mutex<HashSet<PathBuf>>,       
     failed: Mutex<HashSet<PathBuf>>,
     find: Arc<std::sync::Mutex<HashMap<Uuid, u32>>>,
     map: Arc<HashMap<Uuid, Uuid>>,
