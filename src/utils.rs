@@ -1,11 +1,67 @@
 pub mod nbt_process;
 pub mod uuid_tools;
 
-use std::{collections::HashMap, fs};
-
+use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
 use uuid::Uuid;
-
 use crate::ARGS;
+
+
+pub fn get_all_mca(dir: &str) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if let Some(extension) = path.extension() && extension == "mca" {
+                if let Some(parent) = path.parent() && let Some(file_name) = parent.file_name() {
+                    if (file_name == "region" && ARGS.ignore_region) ||
+                    (file_name == "entities" && ARGS.ignore_entities) ||
+                    (file_name == "poi" && ARGS.ignore_poi)
+                    {
+                        continue;
+                    }
+                }
+                files.push(path);
+            } else if path.is_dir() && let Some(path) = path.to_str() {
+                files.extend(get_all_mca(path));
+            }
+        }
+    }
+
+    files
+}
+
+pub fn get_player_dat(dir: &str) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    
+    if let Ok(entries) = fs::read_dir(format!("{}/playerdata", dir)) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if let Some(extension) = path.extension() && (extension == "dat" || extension == "dat_old") {
+                files.push(path);
+            }
+        }
+    }
+
+    files
+}
+
+pub fn get_uuid_file(dir: &str, map: Arc<HashMap<Uuid, Uuid>>) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if let Some(file_name) = path.file_stem() && map.keys().any(|&key| *key.to_string() == *file_name) {
+                files.push(path);
+            } else if path.is_dir() && let Some(path) = path.to_str() {
+                files.extend(get_uuid_file(path, Arc::clone(&map)));
+            }
+        }
+    }
+
+    files
+}
 
 pub fn init_map() -> HashMap<Uuid, Uuid> {
     match fs::read_to_string(&ARGS.map) {

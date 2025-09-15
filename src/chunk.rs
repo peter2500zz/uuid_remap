@@ -8,12 +8,29 @@ use uuid::Uuid;
 use crate::utils::nbt_process::*;
 use crate::utils::uuid_tools::*;
 
-pub struct ChunkProcesser {
+pub struct NbtProcesser {
     find: Arc<Mutex<HashMap<Uuid, u32>>>,
     map : Arc<HashMap<Uuid, Uuid>>
 }
 
-impl ChunkProcesser {
+fn remap(nbt_tag: &NbtTag, cp: Arc<Mutex<&NbtProcesser>>) -> Option<NbtTag> {
+    let old_uuid = i32s_to_uuid4(nbt_tag.extract_int_array()?);
+    let cp = cp.lock().expect("无法使用被毒化的Mutex");
+    // println!("{}", old_uuid.to_string());
+    let new_uuid = if let Some(new_uuid) = cp.map.get(&old_uuid) {
+        // 有对应
+        let mut guard = cp.find.lock().expect("无法使用被毒化的Mutex");
+        *guard.entry(old_uuid).or_insert(0) += 1;
+        drop(guard);
+
+        uuid4_to_i32s(new_uuid.clone()).to_vec().into()
+    } else {
+        nbt_tag.clone()
+    };
+    Some(new_uuid)
+}
+
+impl NbtProcesser {
     pub fn new(find: Arc<Mutex<HashMap<Uuid, u32>>>, map: Arc<HashMap<Uuid, Uuid>>) -> Self {
         Self { 
             find,
@@ -21,30 +38,12 @@ impl ChunkProcesser {
         }
     }
 
-    pub fn process(&self, chunk: RawChunk) -> Result<Bytes> {
+    pub fn chunk(&self, chunk: RawChunk) -> Result<Bytes> {
         let c = chunk.decompress()?;
 
         let nbt = Nbt::read(&mut c.as_slice())?;
 
         let cp = Arc::new(Mutex::new(self));
-
-        
-        fn _remap(nbt_tag: &NbtTag, cp: Arc<Mutex<&ChunkProcesser>>) -> Option<NbtTag> {
-            let old_uuid = i32s_to_uuid4(nbt_tag.extract_int_array()?);
-            let cp = cp.lock().expect("无法使用被毒化的Mutex");
-            // println!("{}", old_uuid.to_string());
-            let new_uuid = if let Some(new_uuid) = cp.map.get(&old_uuid) {
-                // 有对应
-                let mut guard = cp.find.lock().expect("无法使用被毒化的Mutex");
-                *guard.entry(old_uuid).or_insert(0) += 1;
-                drop(guard);
-
-                uuid4_to_i32s(new_uuid.clone()).to_vec().into()
-            } else {
-                nbt_tag.clone()
-            };
-            Some(new_uuid)
-        }
 
         let new_nbt = process_compound(
             &NbtCompound::from(nbt), 
@@ -69,7 +68,7 @@ impl ChunkProcesser {
                                     match tag_name.as_str() {
                                         // 对于可驯服生物 | 最后一次被攻击时的玩家 | 弹射物 | 中立生物仇恨对象
                                         "Owner" | "last_hurt_by_player" | "AngryAt" => {
-                                            _remap(nbt_tag, cp)
+                                            remap(nbt_tag, cp)
                                         },
                                         // 对于狐狸
                                         "Trusted" => {
@@ -78,7 +77,7 @@ impl ChunkProcesser {
                                                 move |nbt_tag| {
                                                     let cp = Arc::clone(&cp);
 
-                                                    _remap(nbt_tag, cp)
+                                                    remap(nbt_tag, cp)
                                                 }
                                             )?;
 
@@ -99,7 +98,7 @@ impl ChunkProcesser {
                                                             match tag_name.as_str() {
                                                                 // 言论对象
                                                                 "Target" => {
-                                                                    _remap(nbt_tag, cp)
+                                                                    remap(nbt_tag, cp)
                                                                 },
                                                                 _ => Some(nbt_tag.clone()),
                                                             }
@@ -134,4 +133,41 @@ impl ChunkProcesser {
             Err(anyhow::Error::msg("无法构建NBT"))
         }
     }
+
+    pub fn player_dat(&self, data: Vec<u8>) -> Result<Bytes> {
+
+        let nbt = Nbt::read(&mut data.as_slice())?;
+
+        let cp = Arc::new(Mutex::new(self));
+
+        let new_nbt = process_compound(
+        &NbtCompound::from(nbt),
+        |tag_name, nbt_tag| {
+            let cp = Arc::clone(&cp);
+
+            match tag_name.as_str() {
+            // 自身UUID
+            "UUID" => {
+                remap(nbt_tag, cp)
+            },
+            _ => Some(nbt_tag.clone()),
+        }
+        }
+    );
+
+        if let Some(new_nbt) = new_nbt {
+            Ok(Nbt::new("".to_string(), new_nbt).write())
+        } else {
+            Err(anyhow::Error::msg("无法构建NBT"))
+        }
+    }
 }
+
+
+#[tokio::test]
+async fn g() {
+    let c = vec![-346108821, -1882835125, -1603894003, 311331491];
+
+    println!("{:?}", i32s_to_uuid4(&c));
+}
+
