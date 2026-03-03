@@ -3,7 +3,7 @@
 使用此插件，可以从NBT层面改变UUID，以及处理就的玩家存档。</br>
 
 首先需要编写一个json，用于指示UUID的变更</br>
-可以从[官方Wiki](https://zh.minecraft.wiki/w/%E9%80%9A%E7%94%A8%E5%94%AF%E4%B8%80%E8%AF%86%E5%88%AB%E7%A0%81#%E6%8A%98%E5%8F%A0%E7%89%88%E6%9C%AC)中用玩家ID快速获取离线与在线的UUID</br>
+可以在 [Calculators/Player UUID](https://minecraft.wiki/w/Calculators/Player_UUID) 中用玩家ID快速获取离线与在线的UUID</br>
 
 example.json
 ```json
