@@ -2,6 +2,7 @@ mod chunk;
 mod utils;
 mod args;
 mod processer;
+mod detect;
 
 use std::{process::exit, sync::Arc};
 use console::style;
