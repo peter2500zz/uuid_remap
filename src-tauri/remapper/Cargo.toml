@@ -3,4 +3,11 @@ name = "remapper"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+crate-type = ["rlib"]
+
 [dependencies]
+anyhow = "1.0.102"
+fastnbt = "2.6.0"
+mca = { git = "https://github.com/peter2500zz/mca", branch = "fix/sync-to-compression-error" }
+uuid = { version = "1.22.0", features = ["v4"] }
