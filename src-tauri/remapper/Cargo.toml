@@ -3,9 +3,6 @@ name = "remapper"
 version = "0.1.0"
 edition = "2024"
 
-[lib]
-crate-type = ["rlib"]
-
 [dependencies]
 anyhow = "1.0.102"
 fastnbt = "2.6.0"

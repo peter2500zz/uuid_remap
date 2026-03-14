@@ -1,7 +1,9 @@
 use std::{
     // collections::HashMap,
+    collections::HashMap,
     fs,
-    io::{BufWriter, Write}, str::FromStr,
+    io::{BufWriter, Write},
+    rc::Rc,
 };
 
 use anyhow::Result;
@@ -36,9 +38,9 @@ pub fn uuid4_to_i32s(uuid: Uuid) -> [i32; 4] {
 }
 
 /// 对于每个 NBT，会递归调用此函数以处理可能的所有值
-/// 
+///
 /// 触发递归的只有列表和复合标签
-fn process_nbt(nbt: &mut fastnbt::Value) {
+fn process_nbt(nbt: &mut fastnbt::Value, uuid_map: Rc<HashMap<Uuid, Uuid>>) {
     match nbt {
         // fastnbt::Value::Byte(_) => todo!(),
         // fastnbt::Value::Short(_) => todo!(),
@@ -46,44 +48,42 @@ fn process_nbt(nbt: &mut fastnbt::Value) {
         // fastnbt::Value::Long(_) => todo!(),
         // fastnbt::Value::Float(_) => todo!(),
         // fastnbt::Value::Double(_) => todo!(),
-        fastnbt::Value::String(v) => {
-            if v == "minecraft:diamond_hoe" {
-                *v = "minecraft:diamond_axe".to_string();
-                println!("{}", v);
-            } else if v == "minecraft:diamond_axe" {
-                *v = "minecraft:diamond_hoe".to_string();
-                println!("{}", v);
-            }
-        }
+        // fastnbt::Value::String(v) => {
+        //     if v == "minecraft:diamond_hoe" {
+        //         *v = "minecraft:diamond_axe".to_string();
+        //         println!("{}", v);
+        //     } else if v == "minecraft:diamond_axe" {
+        //         *v = "minecraft:diamond_hoe".to_string();
+        //         println!("{}", v);
+        //     }
+        // }
         // fastnbt::Value::ByteArray(byte_array) => todo!(),
         fastnbt::Value::IntArray(int_array) => {
             if int_array.len() == 4 {
                 let old_uuid = i32s_to_uuid4(int_array);
 
-                if old_uuid.to_string().to_lowercase() == "9db4226c-1015-40da-8fa5-4335aab896b6" {
-                    println!("{}", old_uuid);
-
-                    let new_uuid = uuid4_to_i32s(Uuid::from_str("59c66d96-d356-364a-a84e-0511b286a31b").unwrap());
-
-                    *int_array = fastnbt::IntArray::new(new_uuid.to_vec());
+                if let Some(&other_uuid) = uuid_map.get(&old_uuid) {
+                    println!("Mapping UUID {} to {}", old_uuid, other_uuid);
+                    let new_ints = uuid4_to_i32s(other_uuid);
+                    int_array.copy_from_slice(&new_ints);
                 }
             }
         }
         // fastnbt::Value::LongArray(long_array) => todo!(),
         fastnbt::Value::List(values) => {
             for item in values {
-                process_nbt(item);
+                process_nbt(item, Rc::clone(&uuid_map));
             }
         }
         fastnbt::Value::Compound(hash_map) => {
             for v in hash_map.values_mut() {
-                process_nbt(v);
+                process_nbt(v, Rc::clone(&uuid_map));
             }
             // drain 保留了未来修改 key 的灵活性
             // let new_map = hash_map
             //     .drain()
             //     .map(|(k, mut v)| {
-            //         process_nbt(&mut v);
+            //         process_nbt(&mut v, Rc::clone(&uuid_map));
             //         (k, v)
             //     })
             //     .collect();
@@ -94,7 +94,7 @@ fn process_nbt(nbt: &mut fastnbt::Value) {
 }
 
 /// 解析 mca 文件，并提取其中的区块与 NBT 数据
-pub fn process_mca(mca_path: &str) -> Result<()> {
+pub fn process_mca(mca_path: &str, uuid_map: Rc<HashMap<Uuid, Uuid>>) -> Result<()> {
     let mca_file = fs::read(mca_path)?;
 
     let mut region = RegionReader::new(&mca_file)?;
@@ -111,7 +111,7 @@ pub fn process_mca(mca_path: &str) -> Result<()> {
             // println!("Original NBT: {:#?}", nbt);
             // let mut input = String::new();
             // std::io::stdin().read_line(&mut input).unwrap();
-            process_nbt(&mut nbt);
+            process_nbt(&mut nbt, Rc::clone(&uuid_map));
 
             let new_nbt = fastnbt::to_bytes(&nbt)?;
 
@@ -126,7 +126,7 @@ pub fn process_mca(mca_path: &str) -> Result<()> {
         }
     }
 
-    let file = fs::File::create(format!("{}.mod", mca_path))?;
+    let file = fs::File::create(format!("{}", mca_path))?;
     let mut writer = BufWriter::new(file);
 
     new_region.write(&mut writer)?;
@@ -137,32 +137,25 @@ pub fn process_mca(mca_path: &str) -> Result<()> {
 
 #[test]
 fn mca() -> Result<()> {
-    // let file =
-    //     fs::read(r"C:\Users\27978\Downloads\新建文件夹\server\world\region\r.0.0.mca").unwrap();
+    use std::str::FromStr;
+
+    let mut uuid_map = HashMap::new();
+    uuid_map.insert(
+        Uuid::from_str("9db4226c-1015-40da-8fa5-4335aab896b6")?,
+        Uuid::from_str("59c66d96-d356-364a-a84e-0511b286a31b")?,
+    );
+    uuid_map.insert(
+        Uuid::from_str("59c66d96-d356-364a-a84e-0511b286a31b")?,
+        Uuid::from_str("9db4226c-1015-40da-8fa5-4335aab896b6")?,
+    );
+
     let start_time = std::time::Instant::now();
-    process_mca(r"C:\Users\27978\Downloads\新建文件夹\server\world\entities\r.0.0.mca")?;
+    process_mca(
+        r"C:\Users\27978\Downloads\新建文件夹\server\world\entities\r.0.0.mca",
+        Rc::new(uuid_map),
+    )?;
     let duration = start_time.elapsed();
     println!("Time taken: {:?}", duration);
-
-    // Uuid::from_u128(v)
-
-    // if let Ok(mut region) = RegionReader::new(&file) {
-    //     for (x, z) in region.generated_chunks().unwrap() {
-    //         let chunk = region.chunk(x, z).unwrap().unwrap();
-    //         let mut nbt: fastnbt::Value = fastnbt::from_bytes(chunk).unwrap();
-
-    //         process_nbt(&mut nbt);
-
-    //         // println!("{:#?}", nbt);
-
-    //         // wait for enter
-    //         // let mut input = String::new();
-    //         // std::io::stdin().read_line(&mut input).unwrap();
-    //         // println!("{}")
-    //     }
-    // } else {
-    //     println!("Failed to read the region file.");
-    // }
 
     Ok(())
 }
