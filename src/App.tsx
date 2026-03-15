@@ -6,8 +6,8 @@ import { AppContext } from "./context";
 
 function App() {
 	const [worldPathState, setWorldPathState] = useState({ path: "", isValid: false });
-	const [uuidMapping, setUuidMapping] = useState<{ [key: string]: string }>({});
-	const [nameMapping, setNameMapping] = useState<{ [key: string]: string }>({});
+	const [uuidMapping, setUuidMapping] = useState<[string, string][]>([]);
+	const [nameMapping, setNameMapping] = useState<Record<string, string>>({});
 
 	return (
 		<main className="container">
@@ -17,6 +17,11 @@ function App() {
 					uuidMapping, setUuidMapping,
 					nameMapping, setNameMapping,
 				}}>
+					<button onClick={() => {
+						console.log("Debug - worldPathState:", worldPathState);
+						console.log("Debug - uuidMapping:", uuidMapping);
+						console.log("Debug - nameMapping:", nameMapping);
+					}}>Debug</button>
 					<FolderSelect />
 					<UuidPairs />
 				</AppContext.Provider>

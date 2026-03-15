@@ -8,8 +8,8 @@ interface WorldPathState {
 interface AppContextType {
     worldPathState: WorldPathState;
     setWorldPathState: Dispatch<SetStateAction<WorldPathState>>;
-    uuidMapping: Record<string, string>;
-    setUuidMapping: Dispatch<SetStateAction<Record<string, string>>>;
+    uuidMapping: [string, string][];
+    setUuidMapping: Dispatch<SetStateAction<[string, string][]>>;
     nameMapping: Record<string, string>;
     setNameMapping: Dispatch<SetStateAction<Record<string, string>>>;
 }

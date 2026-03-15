@@ -16,9 +16,7 @@ function FolderSelect() {
     const {
         worldPathState,
         setWorldPathState,
-        nameMapping,
         setNameMapping,
-        uuidMapping,
         setUuidMapping,
     } = useAppContext();
 
@@ -31,19 +29,32 @@ function FolderSelect() {
                 );
 
                 console.log("读取到的caches:", caches);
-                const newNameMappingEntries = caches.reduce((acc, cache) =>
-                    ({ ...acc, [cache.uuid]: cache.name }), {}
-                );
-                const newUuidMappingEntries = caches.reduce((acc, cache) =>
-                    ({ ...acc, [cache.uuid]: uuidMapping[cache.uuid] ?? "" }), {}
-                );
 
-                setNameMapping(prev => ({ ...prev, ...newNameMappingEntries }));
-                setUuidMapping(prev => ({ ...prev, ...newUuidMappingEntries }));
-                console.log("[usercache] 更新后的nameMapping:", { ...nameMapping, ...newNameMappingEntries });
-                console.log("[usercache] 更新后的uuidMapping:", { ...uuidMapping, ...newUuidMappingEntries });
+                // // 增量修改名称映射表
+                // const newNameEntries: Record<string, string> = {};
+                // caches.forEach(cache => {
+                //     newNameEntries[cache.uuid] = cache.name;
+                // });
+
+                // setNameMapping(prev => ({
+                //     ...prev,
+                //     ...newNameEntries
+                // }));
+
+                // // 增量添加 UUID 映射表，使用左值作为主键
+                // const existingKeys = new Set(uuidMapping.map(([k, _]) => k));
+                // const newUuidEntries: [string, string][] = caches
+                //     .filter(cache => !existingKeys.has(cache.uuid))
+                //     .map(cache => [cache.uuid, ""]);
+
+                // setUuidMapping(prev => [...prev, ...newUuidEntries]);
+
+                return caches;
+
             } catch (error) {
                 console.error("读取usercache.json失败:", error);
+
+                return [];
             }
         };
 
@@ -55,20 +66,49 @@ function FolderSelect() {
                 );
 
                 console.log("读取到的playerData:", playerData);
-                const newUuidMappingEntries = playerData.reduce((acc, uuid) =>
-                    ({ ...acc, [uuid]: uuidMapping[uuid] ?? "" }), {}
-                );
 
-                setUuidMapping(prev => ({ ...prev, ...newUuidMappingEntries }));
-                console.log("[playerdata] 更新后的uuidMapping:", { ...uuidMapping, ...newUuidMappingEntries });
+                // // 同样增量添加 UUID 映射表，使用左值作为主键
+                // const existingKeys = new Set(uuidMapping.map(([k, _]) => k));
+                // const newUuidEntries: [string, string][] = playerData
+                //     .filter(uuid => !existingKeys.has(uuid))
+                //     .map(uuid => [uuid, ""]);
+                // setUuidMapping(prev => [...prev, ...newUuidEntries]);
+                return playerData;
+
             } catch (error) {
                 console.error("读取playerdata失败:", error);
+
+                return [];
             }
         }
 
+        const fetchAll = async () => {
+            const [caches, playerData] = await Promise.all([
+                fetchCache(),
+                fetchPlayerData(),
+            ]);
+
+            // namemap 增量更新
+            const newNameEntries = caches.reduce((acc, cache) =>
+                ({ ...acc, [cache.uuid]: cache.name }), {}
+            );
+            setNameMapping(prev => ({ ...prev, ...newNameEntries }));
+
+            // UUID map 使用全量覆盖
+            const allUuids = new Set([
+                ...caches.map(c => c.uuid),
+                ...playerData,
+            ]);
+            setUuidMapping([...allUuids].map(uuid => [uuid, ""]));
+        };
+
         if (worldPathState.isValid) {
-            fetchCache();
-            fetchPlayerData();
+            // 能执行到这里说明选择了新的世界目录
+
+            // 清空 UUID 映射表
+            setUuidMapping([]);
+
+            fetchAll();
         }
     }, [worldPathState]);
 
