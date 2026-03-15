@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import style from "./uuidPair.module.css";
 import { invoke } from "@tauri-apps/api/core";
+import { useAppContext } from "../context";
 
 function UuidPair() {
 
@@ -13,17 +14,19 @@ function UuidPair() {
     )
 }
 
-function UuidPairs({ worldPath }: { worldPath: string }) {
+function UuidPairs() {
     const [display, setDisplay] = useState(false);
+    const { worldPathState } = useAppContext();
+
 
     useEffect(() => {
-        setDisplay(!!worldPath);
+        setDisplay(!!worldPathState.path);
 
-    }, [worldPath]);
+    }, [worldPathState]);
 
     return (
         <div className={style.container}>
-            <button onClick={() => setDisplay(!display)} disabled={!worldPath}>
+            <button onClick={() => setDisplay(!display)} disabled={!worldPathState.path}>
                 设定UUID转换规则
             </button>
 
