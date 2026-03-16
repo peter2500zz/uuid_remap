@@ -8,6 +8,17 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "dialog:default"
+    "dialog:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        {
+          "url": "https://sessionserver.mojang.com/*"
+        },
+        {
+          "url": "https://api.mojang.com/*"
+        }
+      ]
+    }
   ]
 }

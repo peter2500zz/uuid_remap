@@ -3,9 +3,10 @@ import style from "./folderSelect.module.css";
 import { open } from '@tauri-apps/plugin-dialog';
 import { useEffect, useState } from "react";
 import { useAppContext } from "../context";
+import resolveUserCache from "../getAvatar";
 
 
-type UserCache = {
+interface UserCache {
     name: string;
     uuid: string;
     expiresOn: string;
@@ -16,6 +17,7 @@ function FolderSelect() {
     const {
         worldPathState,
         setWorldPathState,
+        nameMapping,
         setNameMapping,
         setUuidMapping,
     } = useAppContext();
@@ -89,11 +91,9 @@ function FolderSelect() {
             ]);
 
             // namemap 增量更新
-            const newNameEntries = caches.reduce((acc, cache) =>
-                ({ ...acc, [cache.uuid]: cache.name }), {}
-            );
-            setNameMapping(prev => ({ ...prev, ...newNameEntries }));
-
+            caches.forEach(cache => {
+                resolveUserCache(cache, nameMapping, setNameMapping);
+            });
             // UUID map 使用全量覆盖
             const allUuids = new Set([
                 ...caches.map(c => c.uuid),
@@ -148,3 +148,4 @@ function FolderSelect() {
 }
 
 export default FolderSelect;
+export type { UserCache };

@@ -9,6 +9,7 @@ function UuidPair({ index, oldUuid, newUuid }: {
 }) {
     const {
         setUuidMapping,
+        nameMapping,
     } = useAppContext();
 
     // 给 input 提供用于修改的函数，因为左值也可以修改所以用索引定位了
@@ -20,8 +21,10 @@ function UuidPair({ index, oldUuid, newUuid }: {
 
     return (
         <div>
+            { nameMapping[oldUuid]?.avatar && <img src={nameMapping[oldUuid].avatar} alt="Avatar" /> }
             <input value={oldUuid} onChange={e => changeUuid(index, e.target.value, newUuid)} />
             <button onClick={() => changeUuid(index, newUuid, oldUuid)}>↔</button>
+            { nameMapping[newUuid]?.avatar && <img src={nameMapping[newUuid].avatar} alt="Avatar" /> }
             <input value={newUuid} onChange={e => changeUuid(index, oldUuid, e.target.value)} />
             <button onClick={() => setUuidMapping(prev => prev.filter((_, i) => i !== index))}>
                 删除
