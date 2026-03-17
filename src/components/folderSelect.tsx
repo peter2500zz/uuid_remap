@@ -17,7 +17,6 @@ function FolderSelect() {
     const {
         worldPathState,
         setWorldPathState,
-        nameMapping,
         setNameMapping,
         setUuidMapping,
     } = useAppContext();
@@ -31,25 +30,6 @@ function FolderSelect() {
                 );
 
                 console.log("读取到的caches:", caches);
-
-                // // 增量修改名称映射表
-                // const newNameEntries: Record<string, string> = {};
-                // caches.forEach(cache => {
-                //     newNameEntries[cache.uuid] = cache.name;
-                // });
-
-                // setNameMapping(prev => ({
-                //     ...prev,
-                //     ...newNameEntries
-                // }));
-
-                // // 增量添加 UUID 映射表，使用左值作为主键
-                // const existingKeys = new Set(uuidMapping.map(([k, _]) => k));
-                // const newUuidEntries: [string, string][] = caches
-                //     .filter(cache => !existingKeys.has(cache.uuid))
-                //     .map(cache => [cache.uuid, ""]);
-
-                // setUuidMapping(prev => [...prev, ...newUuidEntries]);
 
                 return caches;
 
@@ -69,12 +49,6 @@ function FolderSelect() {
 
                 console.log("读取到的playerData:", playerData);
 
-                // // 同样增量添加 UUID 映射表，使用左值作为主键
-                // const existingKeys = new Set(uuidMapping.map(([k, _]) => k));
-                // const newUuidEntries: [string, string][] = playerData
-                //     .filter(uuid => !existingKeys.has(uuid))
-                //     .map(uuid => [uuid, ""]);
-                // setUuidMapping(prev => [...prev, ...newUuidEntries]);
                 return playerData;
 
             } catch (error) {

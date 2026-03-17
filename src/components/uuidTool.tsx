@@ -8,24 +8,23 @@ function UuidTool() {
     const [onlineUuid, setOnlineUuid] = useState("");
     const [offlineUuid, setOfflineUuid] = useState("");
     const [playerName, setPlayerName] = useState("");
-    const { 
+    const {
         nameMapping,
         setNameMapping,
     } = useAppContext();
 
-    const handlePlayerNameChange = async (name: string) => {
-        setPlayerName(name);
-        if (!name) {
+    const handleCalculate = async () => {
+        if (!playerName) {
             setOnlineUuid("");
             setOfflineUuid("");
             return;
         }
-        console.log(`fetching UUIDs for player name: ${name}`);
+        console.log(`fetching UUIDs for player name: ${playerName}`);
 
-        setOfflineUuid(playerNameToOfflineUUID(name));
+        setOfflineUuid(playerNameToOfflineUUID(playerName));
         setOnlineUuid("正在查询...");
-        setOnlineUuid(normalizeUUID(await getUuidByName(name)) || "不存在");
-        cachePlayerName(name, null, setNameMapping);
+        setOnlineUuid(normalizeUUID(await getUuidByName(playerName)) ?? "不存在");
+        cachePlayerName(playerName, null, setNameMapping);
     };
 
     return (
@@ -37,8 +36,10 @@ function UuidTool() {
                     type="text"
                     placeholder="输入玩家名称"
                     value={playerName}
-                    onChange={e => handlePlayerNameChange(e.target.value)}
+                    onChange={e => setPlayerName(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && handleCalculate()}
                 />
+                <button onClick={handleCalculate}>计算</button>
             </div>
             <div>
                 <label>在线UUID</label>
@@ -49,6 +50,7 @@ function UuidTool() {
                     value={onlineUuid}
                     readOnly
                 />
+                <button onClick={() => navigator.clipboard.writeText(onlineUuid)}>复制</button>
             </div>
             <div>
                 <label>离线UUID</label>
@@ -59,6 +61,7 @@ function UuidTool() {
                     value={offlineUuid}
                     readOnly
                 />
+                <button onClick={() => navigator.clipboard.writeText(offlineUuid)}>复制</button>
             </div>
         </div>
     )
