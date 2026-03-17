@@ -7,7 +7,7 @@ interface WorldPathState {
 
 type PlayerMode = "Online" | "Offline" | "NotMatch";
 
-interface PLayerData {
+interface PlayerData {
     avatar: string | null;
     name: string;
     mode: PlayerMode;
@@ -18,8 +18,8 @@ interface AppContextType {
     setWorldPathState: Dispatch<SetStateAction<WorldPathState>>;
     uuidMapping: [string, string][];
     setUuidMapping: Dispatch<SetStateAction<[string, string][]>>;
-    nameMapping: Record<string, PLayerData>;
-    setNameMapping: Dispatch<SetStateAction<Record<string, PLayerData>>>;
+    nameMapping: Record<string, PlayerData>;
+    setNameMapping: Dispatch<SetStateAction<Record<string, PlayerData>>>;
 }
 
 export const AppContext = createContext<AppContextType>(null!);
@@ -28,4 +28,4 @@ export function useAppContext() {
     return useContext(AppContext);
 }
 
-export type { WorldPathState, PLayerData };
+export type { WorldPathState, PlayerData };

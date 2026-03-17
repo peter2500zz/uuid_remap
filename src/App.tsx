@@ -2,12 +2,12 @@ import { useState } from "react";
 import FolderSelect from "./components/folderSelect";
 import "./App.css";
 import UuidPairs from "./components/uuidPair";
-import { AppContext } from "./context";
+import { AppContext, PlayerData } from "./context";
 
 function App() {
 	const [worldPathState, setWorldPathState] = useState({ path: "", isValid: false });
 	const [uuidMapping, setUuidMapping] = useState<[string, string][]>([]);
-	const [nameMapping, setNameMapping] = useState<Record<string, string>>({});
+	const [nameMapping, setNameMapping] = useState<Record<string, PlayerData>>({});
 
 	return (
 		<main className="container">

@@ -1,3 +1,7 @@
 .container {
     background-color: lightblue;
 }
+
+.invalidInput {
+    border: 1px solid red;
+}

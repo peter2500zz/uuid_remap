@@ -3,7 +3,7 @@ import style from "./folderSelect.module.css";
 import { open } from '@tauri-apps/plugin-dialog';
 import { useEffect, useState } from "react";
 import { useAppContext } from "../context";
-import resolveUserCache from "../getAvatar";
+import { cachePlayerName } from "../getAvatar";
 
 
 interface UserCache {
@@ -92,7 +92,7 @@ function FolderSelect() {
 
             // namemap 增量更新
             caches.forEach(cache => {
-                resolveUserCache(cache, nameMapping, setNameMapping);
+                cachePlayerName(cache.name, cache.uuid, setNameMapping);
             });
             // UUID map 使用全量覆盖
             const allUuids = new Set([

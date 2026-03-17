@@ -1,8 +1,8 @@
 import { Dispatch, SetStateAction } from "react";
 import { UserCache } from "./components/folderSelect";
-import { PLayerData } from "./context";
+import { PlayerData } from "./context";
 import { fetch } from '@tauri-apps/plugin-http';
-import { playerNameToOfflineUUID } from "./uuidUtils";
+import { normalizeUUID, playerNameToOfflineUUID } from "./uuidUtils";
 
 function toGrayscale(base64: string): Promise<string> {
     return new Promise((resolve) => {
@@ -83,11 +83,14 @@ function canvasToImage(canvas: HTMLCanvasElement): Promise<string> {
     });
 }
 
+const uuidCache = new Map<string, string | null>();
+
 async function getUuidByName(name: string): Promise<string | null> {
+    if (uuidCache.has(name)) return uuidCache.get(name)!;
     const response = await fetch(`https://api.mojang.com/users/profiles/minecraft/${name}`);
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data.id ?? null;
+    const result = response.ok ? ((await response.json()).id ?? null) : null;
+    uuidCache.set(name, result);
+    return result;
 }
 
 // 封装的头像获取函数
@@ -102,43 +105,36 @@ async function getPlayerAvatar(uuid: string): Promise<string | null> {
     return await overlayImageRegions(details.textures.SKIN.url);
 }
 
-async function resolveUserCache(userCache: UserCache, nameMapping: Record<string, PLayerData>, setNameMapping: Dispatch<SetStateAction<Record<string, PLayerData>>>) {
-    if (nameMapping[userCache.uuid]) {
-        return;
-    }
+async function cachePlayerName(
+    playerName: string,
+    specifiedUuid: string | null,
+    setNameMapping: Dispatch<SetStateAction<Record<string, PlayerData>>>
+) {
+    const onlineUuid = await getUuidByName(playerName);
+    const offlineUuid = playerNameToOfflineUUID(playerName);
+    const normalizedOnlineUuid = onlineUuid ? normalizeUUID(onlineUuid) : null;
+    const normalizedOfflineUuid = normalizeUUID(offlineUuid);
+    const normalizedSpecifiedUuid = specifiedUuid ? normalizeUUID(specifiedUuid) : null;
+    const avatar = normalizedOnlineUuid ? await getPlayerAvatar(normalizedOnlineUuid) : null;
+    const grayscaleAvatar = avatar ? await toGrayscale(avatar) : null;
 
-    const realUuid = await getUuidByName(userCache.name);
+    setNameMapping(prev => {
+        const updates: Record<string, PlayerData> = {};
 
-    // 检测是否是离线
-    if (realUuid && realUuid !== userCache.uuid.replace(/-/g, "")) {
-        console.log(`不匹配的UUID: cache ${userCache.uuid} (${userCache.name}) | Mojang API ${realUuid} (${userCache.name})`);
-
-        const isOffline = userCache.uuid === playerNameToOfflineUUID(userCache.name);
-        const avatarRaw = isOffline ? await getPlayerAvatar(realUuid) : null;
-        const avatar = avatarRaw ? await toGrayscale(avatarRaw) : null;
-
-        setNameMapping(prev => ({
-            ...prev,
-            [userCache.uuid]: {
-                name: userCache.name,
-                avatar: avatar,
-                mode: isOffline ? "Offline" : "NotMatch",
-            }
-        }));
-
-        return
-    }
-
-    const avatar = await getPlayerAvatar(userCache.uuid);
-
-    setNameMapping(prev => ({
-        ...prev,
-        [userCache.uuid]: {
-            name: userCache.name,
-            avatar: avatar,
-            mode: "Online",
+        if (normalizedOfflineUuid && !prev[normalizedOfflineUuid]) {
+            updates[normalizedOfflineUuid] = { name: playerName, avatar: grayscaleAvatar, mode: "Offline" };
         }
-    }));
+
+        if (normalizedOnlineUuid && !prev[normalizedOnlineUuid]) {
+            updates[normalizedOnlineUuid] = { name: playerName, avatar: avatar, mode: "Online" };
+        }
+
+        if (normalizedSpecifiedUuid && normalizedSpecifiedUuid !== normalizedOnlineUuid && normalizedSpecifiedUuid !== normalizedOfflineUuid && !prev[normalizedSpecifiedUuid]) {
+            updates[normalizedSpecifiedUuid] = { name: playerName, avatar: grayscaleAvatar, mode: "NotMatch" };
+        }
+
+        return Object.keys(updates).length > 0 ? { ...prev, ...updates } : prev;
+    });
 }
 
-export default resolveUserCache;
+export { getPlayerAvatar, getUuidByName, cachePlayerName };
