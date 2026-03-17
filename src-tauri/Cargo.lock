@@ -3286,6 +3286,7 @@ dependencies = [
  "fastnbt",
  "mca",
  "uuid",
+ "walkdir",
 ]
 
 [[package]]
