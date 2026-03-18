@@ -111,6 +111,8 @@ pub fn process_mca(mca_path: &str, uuid_map: Rc<HashMap<Uuid, Uuid>>) -> Result<
 
 #[test]
 fn mca() -> Result<()> {
+    // 以文件为单位
+
     use std::str::FromStr;
 
     let mut uuid_map = HashMap::new();

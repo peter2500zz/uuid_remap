@@ -4,27 +4,34 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use aho_corasick::AhoCorasick;
 use anyhow::Result;
 use uuid::Uuid;
 use walkdir::WalkDir;
 
-fn exchange_file(path: &Path, left: &str, right: &str) -> Result<()> {
+use crate::utils::uuid_swap_variants;
+
+fn exchange_file(
+    path: &Path,
+    patterns: &[String],
+    replacements: &[String],
+) -> Result<(Option<PathBuf>, Option<PathBuf>)> {
     let parent = match path.parent() {
         Some(p) => p,
-        None => return Ok(()),
+        None => return Ok((None, None)),
     };
 
     let file_name = path.file_name().unwrap_or_default().to_string_lossy();
 
-    let (src, dst_name) = if file_name.contains(left) {
-        (path.to_path_buf(), file_name.replace(left, right))
-    } else if file_name.contains(right) {
-        (path.to_path_buf(), file_name.replace(right, left))
-    } else {
-        return Ok(());
-    };
+    let ac = AhoCorasick::new(patterns)?;
+    let new_name = ac.replace_all(&file_name, replacements);
 
-    let dst = parent.join(&dst_name);
+    if new_name == file_name {
+        return Ok((None, None));
+    }
+
+    let src = path.to_path_buf();
+    let dst = parent.join(new_name);
 
     if src.exists() && dst.exists() {
         let tmp = parent.join(format!("{}.tmp", file_name));
@@ -37,27 +44,12 @@ fn exchange_file(path: &Path, left: &str, right: &str) -> Result<()> {
         fs::rename(&src, &dst)?;
     }
 
-    Ok(())
+    Ok((Some(src), Some(dst)))
 }
 
-pub fn iter_folder_and_replace(uuid_pair: (Uuid, Uuid), folder_path: &str) -> Result<()> {
+pub fn iter_folder_and_replace(uuid_pairs: &[(Uuid, Uuid)], folder_path: &str) -> Result<()> {
     // 预存一些不同的 UUID 变体
-    let variants: Vec<(String, String)> = [
-        (uuid_pair.0.to_string(), uuid_pair.1.to_string()),
-        (
-            uuid_pair.0.to_string().to_uppercase(),
-            uuid_pair.1.to_string().to_uppercase(),
-        ),
-        (
-            uuid_pair.0.to_string().replace('-', ""),
-            uuid_pair.1.to_string().replace('-', ""),
-        ),
-        (
-            uuid_pair.0.to_string().to_uppercase().replace('-', ""),
-            uuid_pair.1.to_string().to_uppercase().replace('-', ""),
-        ),
-    ]
-    .into();
+    let (patterns, replacements) = uuid_swap_variants(uuid_pairs);
 
     // 收集一下文件，否则运行时 walk 会重复
     let files: Vec<PathBuf> = WalkDir::new(folder_path)
@@ -76,28 +68,12 @@ pub fn iter_folder_and_replace(uuid_pair: (Uuid, Uuid), folder_path: &str) -> Re
             continue;
         }
 
-        let file_name = file_path
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string();
-
-        for (a, b) in &variants {
-            if file_name.contains(a.as_str()) || file_name.contains(b.as_str()) {
-                // 把交换的两个路径都标记为已访问
-                let dst_name = if file_name.contains(a.as_str()) {
-                    file_name.replace(a.as_str(), b.as_str())
-                } else {
-                    file_name.replace(b.as_str(), a.as_str())
-                };
-                let dst_path = file_path.parent().unwrap().join(&dst_name);
-
-                visited.insert(file_path.clone());
-                visited.insert(dst_path);
-
-                exchange_file(&file_path, a, b)?;
-                break;
-            }
+        let (src, dst) = exchange_file(&file_path, &patterns, &replacements)?;
+        if let Some(s) = src {
+            visited.insert(s);
+        }
+        if let Some(d) = dst {
+            visited.insert(d);
         }
     }
 
@@ -106,13 +82,17 @@ pub fn iter_folder_and_replace(uuid_pair: (Uuid, Uuid), folder_path: &str) -> Re
 
 #[test]
 fn exchange() -> Result<()> {
+    // 以文件夹为单位
+
     use std::str::FromStr;
 
     let uuid1 = Uuid::from_str("9db4226c-1015-40da-8fa5-4335aab896b6")?;
     let uuid2 = Uuid::from_str("59c66d96-d356-364a-a84e-0511b286a31b")?;
+    let uuid3 = Uuid::from_str("00000000-0000-0000-0000-000000000000")?;
+    let uuid4 = Uuid::from_str("ffffffff-ffff-ffff-ffff-ffffffffffff")?;
 
     iter_folder_and_replace(
-        (uuid1, uuid2),
+        &[(uuid1, uuid2), (uuid3, uuid4)],
         r"C:\Users\27978\Downloads\新建文件夹\server\",
     )?;
 

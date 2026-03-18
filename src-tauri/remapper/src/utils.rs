@@ -26,3 +26,37 @@ pub fn i32s_to_uuid4(values: &[i32]) -> Uuid {
 pub fn uuid4_to_i32s(uuid: Uuid) -> [i32; 4] {
     from_u128(uuid.as_u128())
 }
+
+pub fn uuid_swap_variants(swaps: &[(Uuid, Uuid)]) -> (Vec<String>, Vec<String>) {
+    let mut patterns = Vec::new();
+    let mut replacements = Vec::new();
+
+    for (a, b) in swaps {
+        let (p_ab, r_ab) = uuid_variants(*a, *b); // A → B
+        let (p_ba, r_ba) = uuid_variants(*b, *a); // B → A
+        patterns.extend(p_ab);
+        replacements.extend(r_ab);
+        patterns.extend(p_ba);
+        replacements.extend(r_ba);
+    }
+
+    (patterns, replacements)
+}
+
+// UUID 变体生成
+fn uuid_variants(from: Uuid, to: Uuid) -> (Vec<String>, Vec<String>) {
+    let from_hyphen = from.to_string();
+    let from_upper = from_hyphen.to_uppercase();
+    let from_bare = from_hyphen.replace('-', "");
+    let from_bare_u = from_upper.replace('-', "");
+
+    let to_hyphen = to.to_string();
+    let to_upper = to_hyphen.to_uppercase();
+    let to_bare = to_hyphen.replace('-', "");
+    let to_bare_u = to_upper.replace('-', "");
+
+    let patterns = vec![from_hyphen, from_upper, from_bare, from_bare_u];
+    let replacements = vec![to_hyphen, to_upper, to_bare, to_bare_u];
+
+    (patterns, replacements)
+}
