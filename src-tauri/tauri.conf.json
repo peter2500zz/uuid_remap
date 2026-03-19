@@ -12,9 +12,15 @@
   "app": {
     "windows": [
       {
-        "title": "uuid_remap",
+        "title": "UUID Remapper",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "minWidth": 800,
+        "minHeight": 600,
+        "maxWidth": 800,
+        "maxHeight": 600,
+        "resizable": false,
+        "maximizable": false
       }
     ],
     "security": {

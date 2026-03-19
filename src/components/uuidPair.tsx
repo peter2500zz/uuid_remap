@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import style from "./uuidPair.module.css";
-import { useAppContext } from "../context";
-import { isValidUUID, normalizeUUID } from "../uuidUtils";
-import { getPlayerAvatar } from "../getAvatar";
+import style from "../styles/uuidPair.module.css";
+import { useAppContext } from "../utils/context";
+import { isValidUUID, normalizeUUID } from "../utils/uuidUtils";
+import { cachePlayerName } from "../utils/getAvatar";
 import { fetch } from '@tauri-apps/plugin-http';
 import UuidTool from "./uuidTool";
 
@@ -28,12 +28,7 @@ function UuidPair({ index, oldUuid, newUuid }: {
                 .then(res => res.ok ? res.json() : null)
                 .then(async data => {
                     if (!data) return;
-                    const avatar = await getPlayerAvatar(normalized);
-                    if (!avatar) return;
-                    setNameMapping(prev => ({
-                        ...prev,
-                        [normalized]: { name: data.name, avatar, mode: "Online" }
-                    }));
+                    cachePlayerName(data.name, null, setNameMapping)
                 });
         }
 
@@ -51,13 +46,27 @@ function UuidPair({ index, oldUuid, newUuid }: {
     };
 
     return (
-        <div>
-            {nameMapping[oldUuid]?.avatar && <img src={nameMapping[oldUuid].avatar} alt="Avatar" />}
-            <input className={!isValidUUID(oldUuid) ? style.invalidInput : ""} value={oldUuid} onChange={e => changeUuid(index, e.target.value, "Left")} />
-            <button onClick={() => swapUuid(index)}>↔</button>
-            {nameMapping[newUuid]?.avatar && <img src={nameMapping[newUuid].avatar} alt="Avatar" />}
-            <input className={!isValidUUID(newUuid) ? style.invalidInput : ""} value={newUuid} onChange={e => changeUuid(index, e.target.value, "Right")} />
-            <button onClick={() => setUuidMapping(prev => prev.filter((_, i) => i !== index))}>
+        <div className={style.pairRow}>
+            <div className={style.inputWithAvatar}>
+                {nameMapping[oldUuid]?.avatar && <img className={style.avatar} src={nameMapping[oldUuid].avatar} alt="Old UUID Avatar" />}
+                <input
+                    className={`input input-bordered w-full ${!isValidUUID(oldUuid) ? style.invalidInput : ""}`}
+                    placeholder="原UUID"
+                    value={oldUuid}
+                    onChange={e => changeUuid(index, e.target.value, "Left")}
+                />
+            </div>
+            <button className="btn btn-outline" onClick={() => swapUuid(index)}>↔</button>
+            <div className={style.inputWithAvatar}>
+                {nameMapping[newUuid]?.avatar && <img className={style.avatar} src={nameMapping[newUuid].avatar} alt="New UUID Avatar" />}
+                <input
+                    className={`input input-bordered w-full ${!isValidUUID(newUuid) ? style.invalidInput : ""}`}
+                    placeholder="新UUID"
+                    value={newUuid}
+                    onChange={e => changeUuid(index, e.target.value, "Right")}
+                />
+            </div>
+            <button className="btn btn-outline btn-error" onClick={() => setUuidMapping(prev => prev.filter((_, i) => i !== index))}>
                 删除
             </button>
         </div>
@@ -73,29 +82,34 @@ function UuidPairs() {
     } = useAppContext();
 
     useEffect(() => {
-        setDisplay(!!worldPathState.path);
-
-    }, [worldPathState]);
+        if (!worldPathState.isValid) {
+            setDisplay(false);
+        }
+    }, [worldPathState.isValid]);
 
     return (
         <div className={style.container}>
-            <button onClick={() => setDisplay(!display)} disabled={!worldPathState.path}>
+            <button
+                className="btn btn-secondary"
+                onClick={() => setDisplay(!display)}
+                disabled={!worldPathState.isValid}
+            >
                 设定UUID转换规则
             </button>
 
-            {display && (
-                <div>
-                    <div>
-                        <UuidTool />
-                    </div>
+            <div className={`${style.panel} ${!display ? style.hiddenPanel : ""}`}>
+                <div className={style.toolWrap}>
+                    <UuidTool />
+                </div>
+                <div className={style.rows}>
                     {uuidMapping.map(([oldUuid, newUuid], index) => (
                         <UuidPair key={index} index={index} oldUuid={oldUuid} newUuid={newUuid} />
                     ))}
-                    <button onClick={() => setUuidMapping(prev => [...prev, ["", ""]])}>
-                        +
-                    </button>
                 </div>
-            )}
+                <button className="btn btn-outline" onClick={() => setUuidMapping(prev => [...prev, ["", ""]])}>
+                    +
+                </button>
+            </div>
         </div>
     )
 }
