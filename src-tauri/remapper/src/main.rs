@@ -39,7 +39,7 @@ fn main() {
     let start_time = std::time::Instant::now();
 
     // 遍历文件
-    let _: Vec<_> = WalkDir::new(r"C:\Users\27978\Downloads\新建文件夹\server\")
+    let _: Vec<_> = WalkDir::new(r"C:\Users\27978\Downloads\新建文件夹\serverold\")
         .max_depth(255)
         .into_iter()
         .flatten()
@@ -70,8 +70,11 @@ fn main() {
         })
         .collect();
 
+    let duration_nbt = start_time.elapsed();
+    println!("NBT 替换耗时: {:.2?}", duration_nbt);
+
     if let Err(e) =
-        iter_folder_and_replace(&uuid_map, r"C:\Users\27978\Downloads\新建文件夹\server\")
+        iter_folder_and_replace(&uuid_map, r"C:\Users\27978\Downloads\新建文件夹\serverold\")
     {
         eprintln!("处理文件夹时出错: {}", e);
     }

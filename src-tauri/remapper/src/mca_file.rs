@@ -28,6 +28,14 @@ fn detect_compress_flavor(data: &[u8]) -> Flavor {
 
 fn process_nbt_tag(nbt: &mut NbtTag, uuid_map: &HashMap<Uuid, Uuid>) {
     match nbt {
+        NbtTag::String(string) => {
+            if let Ok(old_uuid) = Uuid::parse_str(string) {
+                if let Some(&other_uuid) = uuid_map.get(&old_uuid) {
+                    // println!("Mapping UUID {} to {}", old_uuid, other_uuid);
+                    *string = other_uuid.to_string();
+                }
+            }
+        }
         NbtTag::IntArray(int_array) => {
             if int_array.len() == 4 {
                 let old_uuid = i32s_to_uuid4(int_array);
@@ -64,6 +72,55 @@ fn process_nbt_tag(nbt: &mut NbtTag, uuid_map: &HashMap<Uuid, Uuid>) {
 ///
 /// 触发递归的只有列表和复合标签
 fn process_nbt(nbt: &mut NbtCompound, uuid_map: &HashMap<Uuid, Uuid>) {
+    // 处理 1.16 之前奇怪的 UUID 规则
+    let mut new_uuids = HashMap::new();
+
+    // 先找所有 Most 键
+    for most_key in nbt.inner().keys().filter(|&k| k.ends_with("Most")) {
+        if let Some(key_prefix) = most_key.strip_suffix("Most") {
+            // 拼接出猜测的 Least 键
+            let least_key = format!("{}Least", key_prefix);
+
+            // 用这俩去查询，都查到了就是有
+            if let Some(NbtTag::Long(uuid_most)) = nbt.inner().get(most_key)
+                && let Some(NbtTag::Long(uuid_least)) = nbt.inner().get(&least_key)
+            {
+                // 把两个 u64 拼成一个 u128，再转成 UUID
+                let old_uuid = Uuid::from_u128((*uuid_most as u128) << 64 | (*uuid_least as u128));
+
+                if let Some(&other_uuid) = uuid_map.get(&old_uuid) {
+                    // println!("Mapping UUID {} to {}", old_uuid, other_uuid);
+
+                    // 暂存以避免所有权问题
+                    new_uuids.insert(
+                        most_key.clone(),
+                        NbtTag::Long((other_uuid.as_u128() >> 64) as i64),
+                    );
+                    new_uuids.insert(
+                        least_key,
+                        NbtTag::Long((other_uuid.as_u128() & (u128::MAX >> 64)) as i64),
+                    );
+                }
+            }
+        }
+    }
+
+    for (k, v) in new_uuids {
+        nbt.insert(k, v);
+    }
+
+    // if let Some(NbtTag::Long(uuid_most)) = nbt.inner().get("UUIDMost")
+    //     && let Some(NbtTag::Long(uuid_least)) = nbt.inner().get("UUIDLeast")
+    // {
+    //     let old_uuid = Uuid::from_u128((*uuid_most as u128) << 64 | (*uuid_least as u128));
+
+    //     if let Some(&other_uuid) = uuid_map.get(&old_uuid) {
+    //         // println!("Mapping UUID {} to {}", old_uuid, other_uuid);
+    //         nbt.insert("UUIDMost".to_string(), NbtTag::Long((other_uuid.as_u128() >> 64) as i64));
+    //         nbt.insert("UUIDLeast".to_string(), NbtTag::Long((other_uuid.as_u128() & (u128::MAX >> 64)) as i64));
+    //     }
+    // }
+
     for v in nbt.inner_mut().values_mut() {
         process_nbt_tag(v, uuid_map);
     }
@@ -81,7 +138,18 @@ pub fn process_nbt_file(path: &Path, uuid_map: &HashMap<Uuid, Uuid>) -> Result<(
         // eprintln!("警告：解码时部分字节无法识别");
     }
 
-    if serde_json::from_str::<serde_json::Value>(&cow).is_err() && let Ok(mut snbt) = quartz_nbt::snbt::parse(&cow)
+    // println!("[TEST] {} {}", serde_json::from_str::<serde_json::Value>(&cow).is_err(), path.display());
+
+    if path.extension().unwrap_or_default() == "snbt" {
+        println!(
+            "[SNBT TEST] {} {:?}",
+            path.display(),
+            quartz_nbt::snbt::parse(&cow)
+        );
+    }
+
+    if serde_json::from_str::<serde_json::Value>(&cow).is_err()
+        && let Ok(mut snbt) = quartz_nbt::snbt::parse(&cow)
     {
         println!("[SNBT] {}", path.display());
         // 是 SNBT 格式，处理后再写回去

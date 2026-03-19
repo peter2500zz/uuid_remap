@@ -2188,9 +2188,9 @@ dependencies = [
 
 [[package]]
 name = "lz4_flex"
-version = "0.11.5"
+version = "0.11.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08ab2867e3eeeca90e844d1940eab391c9dc5228783db2ed999acbc0a9ed375a"
+checksum = "373f5eceeeab7925e0c1098212f2fbc4d416adec9d35051a6ab251e824c1854a"
 
 [[package]]
 name = "mac"
@@ -2242,8 +2242,9 @@ checksum = "2532096657941c2fea9c289d370a250971c689d4f143798ff67113ec042024a5"
 
 [[package]]
 name = "mca"
-version = "2.1.1"
-source = "git+https://github.com/peter2500zz/mca?branch=fix%2Fsync-to-compression-error#b5d9dfaa38fed0c31593935a2a7f3b854b39d6f2"
+version = "2.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b444a5b90809afd67cf43c66f9849a608674e721a0c7ced65dac35ce3d4ed53b"
 dependencies = [
  "flate2",
  "lz4-java-wrc",
