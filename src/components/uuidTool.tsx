@@ -8,6 +8,7 @@ function UuidTool() {
     const [onlineUuid, setOnlineUuid] = useState("");
     const [offlineUuid, setOfflineUuid] = useState("");
     const [playerName, setPlayerName] = useState("");
+    const [ifFetchingAvatar, setIfFetchingAvatar] = useState(false);
     const {
         worldPathState,
         nameMapping,
@@ -35,8 +36,10 @@ function UuidTool() {
 
         setOfflineUuid(playerNameToOfflineUUID(playerName));
         setOnlineUuid("正在查询...");
+        setIfFetchingAvatar(true);
         setOnlineUuid(normalizeUUID(await getUuidByName(playerName)) ?? "不存在");
         cachePlayerName(playerName, null, setNameMapping);
+        setIfFetchingAvatar(false);
     };
 
     const onlineAvatar = nameMapping[onlineUuid]?.avatar;
@@ -67,7 +70,7 @@ function UuidTool() {
                     <div className={style.avatarSlot}>
                         {onlineAvatar
                             ? <img className={style.avatar} src={onlineAvatar} alt="Online UUID Avatar" />
-                            : <div className={`skeleton ${style.avatarSkeleton}`} aria-hidden="true" />}
+                            : <div className={`skeleton ${ifFetchingAvatar ? '' : 'animate-none'} ${style.avatarSkeleton}`} aria-hidden="true" />}
                     </div>
                     <input
                         className="input input-bordered w-full"
@@ -86,7 +89,7 @@ function UuidTool() {
                     <div className={style.avatarSlot}>
                         {offlineAvatar
                             ? <img className={style.avatar} src={offlineAvatar} alt="Offline UUID Avatar" />
-                            : <div className={`skeleton ${style.avatarSkeleton}`} aria-hidden="true" />}
+                            : <div className={`skeleton ${ifFetchingAvatar ? '' : 'animate-none'} ${style.avatarSkeleton}`} aria-hidden="true" />}
                     </div>
                     <input
                         className="input input-bordered w-full"

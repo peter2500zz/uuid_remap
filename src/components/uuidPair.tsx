@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import style from "../styles/uuidPair.module.css";
 import { useAppContext } from "../utils/context";
 import { isValidUUID, normalizeUUID } from "../utils/uuidUtils";
-import { cachePlayerName, getPlayerAvatar } from "../utils/getAvatar";
+import { cachePlayerName } from "../utils/getAvatar";
 import { fetch } from '@tauri-apps/plugin-http';
 import UuidTool from "./uuidTool";
 
