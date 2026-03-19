@@ -1,0 +1,58 @@
+	.container {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		width: 100%;
+	}
+
+	.header {
+		font-weight: 600;
+	}
+
+	.row {
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+	}
+
+	.label {
+		font-size: 0.9rem;
+		opacity: 0.85;
+	}
+
+	.fieldGroup {
+		display: grid;
+		grid-template-columns: auto 1fr auto;
+		gap: 0.5rem;
+		align-items: center;
+		min-width: 0;
+	}
+
+	.avatar {
+		width: 2rem;
+		height: 2rem;
+		border-radius: 0.5rem;
+		flex-shrink: 0;
+	}
+
+	.avatarSkeleton {
+		width: 2rem;
+		height: 2rem;
+		border-radius: 0.5rem;
+	}
+
+	.avatarSlot {
+		width: 2rem;
+		height: 2rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+	}
+
+	@media (max-width: 768px) {
+		.fieldGroup {
+			grid-template-columns: 1fr;
+		}
+	}
+    
