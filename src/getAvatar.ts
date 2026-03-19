@@ -1,5 +1,4 @@
 import { Dispatch, SetStateAction } from "react";
-import { UserCache } from "./components/folderSelect";
 import { PlayerData } from "./context";
 import { fetch } from '@tauri-apps/plugin-http';
 import { normalizeUUID, playerNameToOfflineUUID } from "./uuidUtils";

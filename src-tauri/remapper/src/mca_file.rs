@@ -81,8 +81,9 @@ pub fn process_nbt_file(path: &Path, uuid_map: &HashMap<Uuid, Uuid>) -> Result<(
         // eprintln!("警告：解码时部分字节无法识别");
     }
 
-    if let Ok(mut snbt) = quartz_nbt::snbt::parse(&cow) {
-        println!("[SNBT]");
+    if serde_json::from_str::<serde_json::Value>(&cow).is_err() && let Ok(mut snbt) = quartz_nbt::snbt::parse(&cow)
+    {
+        println!("[SNBT] {}", path.display());
         // 是 SNBT 格式，处理后再写回去
         process_nbt(&mut snbt, uuid_map);
 
@@ -131,13 +132,12 @@ pub fn process_mca_file(mca_path: &Path, uuid_map: &HashMap<Uuid, Uuid>) -> Resu
             let compression_type = chunk.compression.clone();
             let buffer = region.decompress_to_internal_buffer(chunk)?;
 
-            let flavor = detect_compress_flavor(buffer);
             let mut cursor = Cursor::new(buffer);
-            let (mut nbt, root_name) = quartz_nbt::io::read_nbt(&mut cursor, flavor)?;
+            let (mut nbt, root_name) = quartz_nbt::io::read_nbt(&mut cursor, Flavor::Uncompressed)?;
             process_nbt(&mut nbt, uuid_map);
 
             let mut output = Vec::new();
-            quartz_nbt::io::write_nbt(&mut output, Some(&root_name), &nbt, flavor)?;
+            quartz_nbt::io::write_nbt(&mut output, Some(&root_name), &nbt, Flavor::Uncompressed)?;
 
             if buffer.len() != output.len() {
                 return Err(anyhow::anyhow!("NBT 数据长度发生了变化，无法写回原区块"));
