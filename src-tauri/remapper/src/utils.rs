@@ -1,3 +1,5 @@
+use std::{collections::HashMap};
+
 use uuid::Uuid;
 
 pub fn to_u128(a: i32, b: i32, c: i32, d: i32) -> u128 {
@@ -27,11 +29,11 @@ pub fn uuid4_to_i32s(uuid: Uuid) -> [i32; 4] {
     from_u128(uuid.as_u128())
 }
 
-pub fn uuid_swap_variants(swaps: &[(Uuid, Uuid)]) -> (Vec<String>, Vec<String>) {
+pub fn uuid_swap_variants(swaps: &HashMap<Uuid, Uuid>) -> (Vec<String>, Vec<String>) {
     let mut patterns = Vec::new();
     let mut replacements = Vec::new();
 
-    for (a, b) in swaps {
+    for (a, b) in swaps.iter() {
         let (p_ab, r_ab) = uuid_variants(*a, *b); // A → B
         let (p_ba, r_ba) = uuid_variants(*b, *a); // B → A
         patterns.extend(p_ab);
@@ -59,4 +61,13 @@ fn uuid_variants(from: Uuid, to: Uuid) -> (Vec<String>, Vec<String>) {
     let replacements = vec![to_hyphen, to_upper, to_bare, to_bare_u];
 
     (patterns, replacements)
+}
+
+pub fn create_reverse_map(map: &HashMap<Uuid, Uuid>) -> HashMap<Uuid, Uuid> {
+    let mut reverse = HashMap::new();
+    for (k, v) in map {
+        reverse.insert(*k, *v);
+        reverse.insert(*v, *k);
+    }
+    reverse
 }

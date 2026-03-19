@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
 };
@@ -35,19 +35,27 @@ fn exchange_file(
 
     if src.exists() && dst.exists() {
         let tmp = parent.join(format!("{}.tmp", file_name));
-        println!("交换文件：{} <-> {}", src.display(), dst.display());
+        println!(
+            "[SWP] 交换文件：{} <-> {}",
+            src.file_name().unwrap_or_default().to_string_lossy(),
+            dst.file_name().unwrap_or_default().to_string_lossy()
+        );
         fs::rename(&src, &tmp)?;
         fs::rename(&dst, &src)?;
         fs::rename(&tmp, &dst)?;
     } else if src.exists() {
-        println!("重命名文件：{} -> {}", src.display(), dst.display());
+        println!(
+            "[REN] 重命名文件：{} -> {}",
+            src.file_name().unwrap_or_default().to_string_lossy(),
+            dst.file_name().unwrap_or_default().to_string_lossy()
+        );
         fs::rename(&src, &dst)?;
     }
 
     Ok((Some(src), Some(dst)))
 }
 
-pub fn iter_folder_and_replace(uuid_pairs: &[(Uuid, Uuid)], folder_path: &str) -> Result<()> {
+pub fn iter_folder_and_replace(uuid_pairs: &HashMap<Uuid, Uuid>, folder_path: &str) -> Result<()> {
     // 预存一些不同的 UUID 变体
     let (patterns, replacements) = uuid_swap_variants(uuid_pairs);
 
@@ -91,10 +99,9 @@ fn exchange() -> Result<()> {
     let uuid3 = Uuid::from_str("00000000-0000-0000-0000-000000000000")?;
     let uuid4 = Uuid::from_str("ffffffff-ffff-ffff-ffff-ffffffffffff")?;
 
-    iter_folder_and_replace(
-        &[(uuid1, uuid2), (uuid3, uuid4)],
-        r"C:\Users\27978\Downloads\新建文件夹\server\",
-    )?;
+    let uuid_pairs = HashMap::from([(uuid1, uuid2), (uuid3, uuid4)]);
+
+    iter_folder_and_replace(&uuid_pairs, r"C:\Users\27978\Downloads\新建文件夹\server\")?;
 
     Ok(())
 }
