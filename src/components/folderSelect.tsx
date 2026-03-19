@@ -116,13 +116,15 @@ function FolderSelect() {
                     className="input input-bordered w-full"
                     placeholder="选择世界的路径"
                     value={worldPathState.path}
-                    onChange={async (e) => {
-                        // 直接输入时候检查合法性
+                    onChange={(e) => {
                         const newPath = e.target.value;
 
-                        setWorldPathState({
-                            path: newPath,
-                            isValid: await invoke("check_dir", { dirPath: newPath })
+                        // 先同步更新 path，保证光标不跳
+                        setWorldPathState(prev => ({ ...prev, path: newPath }));
+
+                        // 再异步校验
+                        invoke<boolean>("check_dir", { dirPath: newPath }).then(isValid => {
+                            setWorldPathState(prev => ({ ...prev, isValid }));
                         });
                     }}
                 />
@@ -142,31 +144,30 @@ function FolderSelect() {
                 </button>
             </div>
             <button
-            className="btn btn-primary"
-            onClick={async () => {
-                if (!hasPath) {
-                    showToast("warning", "目录不能为空");
-                    return;
-                }
+                className="btn btn-primary"
+                onClick={async () => {
+                    if (!hasPath) {
+                        showToast("warning", "目录不能为空");
+                        return;
+                    }
 
-                showToast(
-                    worldPathState.isValid ? "success" : "error",
-                    worldPathState.isValid ? "有效的世界目录" : "无效的世界目录"
-                );
-            }}
+                    showToast(
+                        worldPathState.isValid ? "success" : "error",
+                        worldPathState.isValid ? "有效的世界目录" : "无效的世界目录"
+                    );
+                }}
             >
                 检测目录是否有效
-            </button> 
+            </button>
 
             {toast && (
                 <div className="toast toast-top toast-center z-50">
-                    <div className={`alert ${
-                        toast.kind === "success"
+                    <div className={`alert ${toast.kind === "success"
                             ? "alert-success"
                             : toast.kind === "error"
                                 ? "alert-error"
                                 : "alert-warning"
-                    }`}>
+                        }`}>
                         <span>{toast.message}</span>
                     </div>
                 </div>

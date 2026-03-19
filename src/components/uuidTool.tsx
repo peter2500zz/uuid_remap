@@ -63,7 +63,7 @@ function UuidTool() {
 
             <div className={style.row}>
                 <label className={style.label}>在线UUID</label>
-                <div className={style.fieldGroup}>
+                <div className={style.fieldGroup + " " + style.uuidFieldGroup}>
                     <div className={style.avatarSlot}>
                         {onlineAvatar
                             ? <img className={style.avatar} src={onlineAvatar} alt="Online UUID Avatar" />
@@ -82,7 +82,7 @@ function UuidTool() {
 
             <div className={style.row}>
                 <label className={style.label}>离线UUID</label>
-                <div className={style.fieldGroup}>
+                <div className={style.fieldGroup + " " + style.uuidFieldGroup}>
                     <div className={style.avatarSlot}>
                         {offlineAvatar
                             ? <img className={style.avatar} src={offlineAvatar} alt="Offline UUID Avatar" />

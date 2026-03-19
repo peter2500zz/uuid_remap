@@ -1,4 +1,17 @@
 @import "tailwindcss";
+
 @plugin "daisyui" {
   themes: light --default, dark --prefersdark, cupcake;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono Regular';
+  src: url('./fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+input {
+  font-family: 'JetBrains Mono Regular', monospace;
 }

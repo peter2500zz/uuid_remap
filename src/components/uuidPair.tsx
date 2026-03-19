@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import style from "../styles/uuidPair.module.css";
 import { useAppContext } from "../utils/context";
 import { isValidUUID, normalizeUUID } from "../utils/uuidUtils";
-import { getPlayerAvatar } from "../utils/getAvatar";
+import { cachePlayerName, getPlayerAvatar } from "../utils/getAvatar";
 import { fetch } from '@tauri-apps/plugin-http';
 import UuidTool from "./uuidTool";
 
@@ -28,12 +28,7 @@ function UuidPair({ index, oldUuid, newUuid }: {
                 .then(res => res.ok ? res.json() : null)
                 .then(async data => {
                     if (!data) return;
-                    const avatar = await getPlayerAvatar(normalized);
-                    if (!avatar) return;
-                    setNameMapping(prev => ({
-                        ...prev,
-                        [normalized]: { name: data.name, avatar, mode: "Online" }
-                    }));
+                    cachePlayerName(data.name, null, setNameMapping)
                 });
         }
 

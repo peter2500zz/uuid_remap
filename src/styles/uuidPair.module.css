@@ -1,3 +1,8 @@
+
+img {
+	image-rendering: pixelated;
+}
+
 .container {
 	width: 100%;
 	max-width: 52rem;
@@ -40,7 +45,6 @@
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
-	min-width: 0;
 }
 
 .avatar {
