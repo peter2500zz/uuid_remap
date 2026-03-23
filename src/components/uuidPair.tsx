@@ -95,29 +95,16 @@ function UuidPairs() {
     }, [worldPathState.isValid]);
 
     return (
-        <div className="collapse collapse-plus bg-base-100 border-base-300 border">
-            {/* <button
-                className="btn btn-secondary"
-                onClick={() => setDisplay(!display)}
-                disabled={!worldPathState.isValid}
-            >
-                设定UUID转换规则
-            </button> */}
-
-            <input type="checkbox" defaultChecked />
-            <div className="collapse-title font-semibold after:start-5 after:end-auto pe-4 ps-12">设定UUID转换规则</div>
-
-            <div className="collapse-content text-sm">
-                <UuidTool />
-                <div className={style.rows}>
-                    {uuidMapping.map(([oldUuid, newUuid], index) => (
-                        <UuidPair key={index} index={index} oldUuid={oldUuid} newUuid={newUuid} />
-                    ))}
-                </div>
-                <button className="btn btn-outline" onClick={() => setUuidMapping(prev => [...prev, ["", ""]])}>
-                    +
-                </button>
+        <div>
+            <UuidTool />
+            <div className={style.rows}>
+                {uuidMapping.map(([oldUuid, newUuid], index) => (
+                    <UuidPair key={index} index={index} oldUuid={oldUuid} newUuid={newUuid} />
+                ))}
             </div>
+            <button className="btn btn-outline" onClick={() => setUuidMapping(prev => [...prev, ["", ""]])}>
+                +
+            </button>
         </div>
     )
 }

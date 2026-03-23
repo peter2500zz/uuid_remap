@@ -26,24 +26,36 @@ function App() {
 				>
 					<div className="min-w-full min-h-screen flex flex-col">
 						<FolderSelect />
-						<div className="mt-auto flex justify-end p-4">
-							<button className="btn btn-primary" onClick={() => setCur(1)}>Next</button>
-						</div>
 					</div>
 					<div className="min-w-full min-h-screen flex flex-col">
 						<UuidPairs />
-						<div className="mt-auto flex justify-end p-4">
-							<button className="btn" onClick={() => setCur(0)}>Prev</button>
-							<button className="btn btn-primary" onClick={() => setCur(2)}>Next</button>
-						</div>
 					</div>
 					<div className="min-w-full min-h-screen flex flex-col">
 						<RemapProgress />
-						<div className="mt-auto flex justify-end p-4">
-							<button className="btn" onClick={() => setCur(1)}>Prev</button>
-						</div>
 					</div>
 				</div>
+
+				<div className="fixed bottom-0 right-0 p-4">
+					<button
+						className={`btn ${cur === 0 ? "btn-disabled" : ""}`}
+						onClick={() => {
+							setCur(cur - 1);
+						}}
+						disabled={cur === 0}
+					>
+						Prev
+					</button>
+					<button className={`btn btn-primary ${cur === 2 ? "btn-disabled" : ""}`} onClick={() => {
+						setCur(cur + 1);
+					}} disabled={cur === 2}>
+						Next
+					</button>
+				</div>
+				<ul className="steps fixed bottom-0 left-0">
+					<li className={`step ${cur >= 0 ? "step-primary" : ""}`}>选择世界目录</li>
+					<li className={`step ${cur >= 1 ? "step-primary" : ""}`}>设定UUID映射</li>
+					<li className={`step ${cur >= 2 ? "step-primary" : ""}`}>原神启动</li>
+				</ul>
 			</AppContext.Provider>
 		</main>
 	);
