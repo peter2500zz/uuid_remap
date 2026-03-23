@@ -1,8 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import style from "../styles/folderSelect.module.css";
 import { open } from '@tauri-apps/plugin-dialog';
-import { useEffect, useRef, useState } from "react";
-import { useAppContext } from "../utils/context";
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
+import { useAppContext, WorldPathState, WorldPathType } from "../utils/context";
 import { cachePlayerName } from "../utils/getAvatar";
 
 
@@ -14,10 +14,7 @@ interface UserCache {
 
 type ToastKind = "success" | "error" | "warning";
 
-function FolderSelect() {
-    const [toast, setToast] = useState<{ kind: ToastKind; message: string } | null>(null);
-    const toastTimerRef = useRef<number | null>(null);
-    const loadedPathRef = useRef("");
+function FolderSelect({ canNext, setCanNext }: { canNext: boolean, setCanNext: Dispatch<SetStateAction<boolean>> }) {
 
     const {
         worldPathState,
@@ -26,20 +23,6 @@ function FolderSelect() {
         setUuidMapping,
     } = useAppContext();
 
-    const hasPath = worldPathState.path.trim() !== "";
-
-    const showToast = (kind: ToastKind, message: string) => {
-        setToast({ kind, message });
-
-        if (toastTimerRef.current !== null) {
-            window.clearTimeout(toastTimerRef.current);
-        }
-
-        toastTimerRef.current = window.setTimeout(() => {
-            setToast(null);
-            toastTimerRef.current = null;
-        }, 1800);
-    };
 
     useEffect(() => {
         const fetchCache = async () => {
@@ -72,6 +55,7 @@ function FolderSelect() {
         }
 
         const fetchAll = async () => {
+            // TODO
             const [caches, playerData] = await Promise.all([
                 fetchCache(),
                 fetchPlayerData(),
@@ -89,89 +73,165 @@ function FolderSelect() {
             setUuidMapping([...allUuids].map(uuid => [uuid, ""]));
         };
 
-        const trimmedPath = worldPathState.path.trim();
+        // const trimmedPath = worldPathState.path.trim();
 
-        if (worldPathState.isValid && trimmedPath && trimmedPath !== loadedPathRef.current) {
-            // 能执行到这里说明选择了新的世界目录
-            // 清空 UUID 映射表
-            setUuidMapping([]);
-            loadedPathRef.current = trimmedPath;
+        // if (worldPathState.isValid && trimmedPath && trimmedPath !== loadedPathRef.current) {
+        //     // 能执行到这里说明选择了新的世界目录
+        //     // 清空 UUID 映射表
+        //     setUuidMapping([]);
+        //     loadedPathRef.current = trimmedPath;
 
-            fetchAll();
-        }
+        //     fetchAll();
+        // }
     }, [worldPathState]);
 
-    useEffect(() => {
-        return () => {
-            if (toastTimerRef.current !== null) {
-                window.clearTimeout(toastTimerRef.current);
+    function GenerateAlert() {
+        if (!worldPathState.path || worldPathState.type === "NotExist") {
+            return (
+                <></>
+            )
+        } else {
+            if (worldPathState.type === "World") {
+                return (
+                    <div role="alert" className="alert">
+                        <span>
+                            ✅ 检测到世界目录
+                        </span>
+                    </div>
+                )
+            } else if (worldPathState.type === "WorldButHasServer") {
+                return (
+                    <div className="flex flex-col gap-4">
+                        <div role="alert" className="alert">
+                            <span>
+                                ❓ 检测到了游戏存档，但是它似乎在一个服务器文件夹下。<br />
+                                如果这是服务器的存档，推荐选择服务器文件夹以获得更完全的处理。
+                            </span>
+                        </div>
+                        <div role="alert" className="alert flex justify-between">
+                            <span>你想要使用服务器文件夹吗？</span>
+                            <div>
+                                <button className="btn btn-sm btn-primary" onClick={() => {
+                                    setWorldPathState({
+                                        path: `${worldPathState.path}/../`,
+                                        type: "Server",
+                                    })
+                                }}>是的</button><button className="btn btn-sm" onClick={() => {
+                                    setWorldPathState({
+                                        path: worldPathState.path,
+                                        type: "World",
+                                    })
+                                }}>不了</button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            } else if (worldPathState.type === "Server") {
+                return (
+                    <div role="alert" className="alert">
+                        <span>
+                            ✅ 检测到服务器目录
+                        </span>
+                    </div>
+                )
+            } else {
+                return (
+                    <div className="flex flex-col gap-4">
+                        <div role="alert" className="alert">
+                            <span>
+                                ❌ 这个目录看起来既不是存档也不是服务器文件夹。
+                            </span>
+                        </div>
+
+                        {(worldPathState.type === "Invalid" && !canNext) &&
+                            <div role="alert" className="alert flex justify-between">
+                                <span>仍然使用它？</span>
+                                <button className="btn btn-sm" onClick={() => {
+                                    setCanNext(true);
+                                }}>是的</button>
+                            </div>
+                        }
+
+                    </div>
+                )
             }
-        };
-    }, []);
+        }
+    }
+
+    const updatePath = async (dir: string) => {
+        const serverResult = await invoke<[string, string] | null>("check_server_dir", { dirPath: dir });
+
+        if (serverResult) {
+            setCanNext(true);
+            setWorldPathState({
+                path: dir,
+                type: "Server",
+            });
+
+            return;
+        }
+
+        const worldResult = await invoke<string | null>("check_world_dir", { dirPath: dir });
+        if (worldResult) {
+            const doesServerExits = await invoke<[string, string] | null>("check_server_dir", { dirPath: `${dir}/../` });
+
+            setCanNext(true);
+            setWorldPathState({
+                path: dir,
+                type: doesServerExits ? "WorldButHasServer" : "World",
+            });
+
+            return;
+        }
+
+        // console.warn("既不是服务器目录也不是世界目录，标记为无效，但用户选择了使用它", dir);
+
+        setCanNext(false);
+        setWorldPathState({
+            path: dir,
+            type: await invoke<boolean>("check_dir_exist", { dirPath: dir }) ? "Invalid" : "NotExist",
+        });
+    }
 
     return (
-        <div className={style.container}>
-            <div className={style.inputRow}>
+        <div className="min-h-screen flex flex-col items-center justify-start pt-32 gap-6">
+            <h1 className="text-5xl font-bold tracking-tight">
+                UUID 交换器
+            </h1>
+
+            <div className="relative w-full max-w-xl">
                 <input
-                    className="input input-bordered w-full"
-                    placeholder="选择世界的路径"
+                    className="input w-full px-5 py-6 border"
+                    placeholder="/path/to/world"
                     value={worldPathState.path}
-                    onChange={(e) => {
+                    onChange={async (e) => {
                         const newPath = e.target.value;
 
-                        // 先同步更新 path，保证光标不跳
                         setWorldPathState(prev => ({ ...prev, path: newPath }));
 
-                        // 再异步校验
-                        invoke<boolean>("check_dir", { dirPath: newPath }).then(isValid => {
-                            setWorldPathState(prev => ({ ...prev, isValid }));
-                        });
+                        await updatePath(newPath);
                     }}
                 />
+
                 <button
-                    className="btn btn-outline"
+                    className="btn absolute right-2 top-1/2 -translate-y-1/2 w-20 h-10"
                     onClick={async () => {
                         // 点按钮的时候也检查
+
+
                         const selected = await open({ multiple: false, directory: true });
                         if (selected) {
-                            setWorldPathState({
-                                path: selected as string,
-                                isValid: await invoke("check_dir", { dirPath: selected })
-                            });
+                            await updatePath(selected);
                         }
                     }}
-                >···
+                >
+                    浏览
                 </button>
             </div>
-            <button
-                className="btn btn-primary"
-                onClick={async () => {
-                    if (!hasPath) {
-                        showToast("warning", "目录不能为空");
-                        return;
-                    }
 
-                    showToast(
-                        worldPathState.isValid ? "success" : "error",
-                        worldPathState.isValid ? "有效的世界目录" : "无效的世界目录"
-                    );
-                }}
-            >
-                检测目录是否有效
-            </button>
-
-            {toast && (
-                <div className="toast toast-top toast-center z-50">
-                    <div className={`alert ${toast.kind === "success"
-                            ? "alert-success"
-                            : toast.kind === "error"
-                                ? "alert-error"
-                                : "alert-warning"
-                        }`}>
-                        <span>{toast.message}</span>
-                    </div>
-                </div>
-            )}
+            <div className="flex gap-4">
+                <GenerateAlert />
+            </div>
         </div>
     );
 }

@@ -6,6 +6,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
+use java_properties::read;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use remapper::{
     content_replace::swap_uuids_in_file,
@@ -28,8 +29,37 @@ struct UserCache {
 }
 
 #[tauri::command]
-fn check_dir(dir_path: String) -> Result<bool, String> {
-    Ok(PathBuf::from(dir_path).join("level.dat").exists())
+fn check_world_dir(dir_path: String) -> Result<Option<PathBuf>, String> {
+    let path = PathBuf::from(dir_path);
+    if path.join("level.dat").exists() {
+        Ok(Some(path))
+    } else {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+fn check_server_dir(dir_path: String) -> Result<Option<(PathBuf, PathBuf)>, String> {
+    let server_path = PathBuf::from(dir_path);
+    if let Ok(file) = File::open(server_path.join("server.properties"))
+        && let Ok(props) = java_properties::read(file)
+        && let Some(level_name) = props.get("level-name")
+    {
+        let world_path = server_path.join(level_name);
+
+        if world_path.join("level.dat").exists() {
+            return Ok(Some((server_path, world_path)));
+        } else {
+            Ok(None)
+        }
+    } else {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+fn check_dir_exist(dir_path: String) -> Result<bool, String> {
+    Ok(PathBuf::from(dir_path).exists())
 }
 
 #[tauri::command]
@@ -97,7 +127,8 @@ async fn process_world(
         .iter()
         .filter_map(|entry| entry.file_type().is_file().then_some(()))
         .collect::<Vec<_>>()
-        .len() + all_entries.len();
+        .len()
+        + all_entries.len();
     println!("共发现 {} 个条目，开始处理...", total);
 
     let _ = app.emit("set-total", total);
@@ -174,7 +205,6 @@ async fn process_world(
         }
 
         let _ = app.emit("finish-task", path);
-
     }
 
     println!("总耗时: {:.2?}", start_time.elapsed());
@@ -189,10 +219,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
-            check_dir,
+            check_world_dir,
+            check_server_dir,
             read_cache,
             read_player_data,
-            process_world
+            process_world,
+            check_dir_exist
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

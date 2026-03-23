@@ -1,4 +1,4 @@
-import { AppContext, PlayerData } from "../utils/context";
+import { AppContext, PlayerData, WorldPathType } from "../utils/context";
 import { useState } from "react";
 import FolderSelect from "../components/folderSelect";
 import UuidPairs from "../components/uuidPair";
@@ -6,7 +6,7 @@ import RemapProgress from "../components/remapProgress";
 
 
 function App() {
-	const [worldPathState, setWorldPathState] = useState({ path: "", isValid: false });
+	const [worldPathState, setWorldPathState] = useState({ path: "", type: "Invalid" as WorldPathType });
 	const [uuidMapping, setUuidMapping] = useState<[string, string][]>([]);
 	const [nameMapping, setNameMapping] = useState<Record<string, PlayerData>>({});
 
@@ -25,7 +25,7 @@ function App() {
 					style={{ transform: `translateX(-${cur * 100}%)` }}
 				>
 					<div className="min-w-full min-h-screen flex flex-col">
-						<FolderSelect />
+						<FolderSelect canNext={canNext} setCanNext={setCanNext} />
 					</div>
 					<div className="min-w-full min-h-screen flex flex-col">
 						<UuidPairs />
@@ -41,13 +41,12 @@ function App() {
 						onClick={() => {
 							setCur(cur - 1);
 						}}
-						disabled={cur === 0}
 					>
 						Prev
 					</button>
-					<button className={`btn btn-primary ${cur === 2 ? "btn-disabled" : ""}`} onClick={() => {
+					<button className={`btn btn-primary ${(cur === 2 || !canNext) ? "btn-disabled" : ""}`} onClick={() => {
 						setCur(cur + 1);
-					}} disabled={cur === 2}>
+					}}>
 						Next
 					</button>
 				</div>

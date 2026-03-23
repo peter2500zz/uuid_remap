@@ -1,8 +1,10 @@
 import { createContext, useContext, Dispatch, SetStateAction } from "react";
 
+type WorldPathType = "Server" | "World" | "WorldButHasServer" | "Invalid" | "NotExist";
+
 interface WorldPathState {
     path: string;
-    isValid: boolean;
+    type: WorldPathType;
 }
 
 type PlayerMode = "Online" | "Offline" | "NotMatch";
@@ -28,4 +30,4 @@ export function useAppContext() {
     return useContext(AppContext);
 }
 
-export type { WorldPathState, PlayerData };
+export type { WorldPathState, PlayerData, WorldPathType };
