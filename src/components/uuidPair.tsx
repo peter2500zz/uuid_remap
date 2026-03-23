@@ -6,6 +6,29 @@ import { cachePlayerName } from "../utils/getAvatar";
 import { fetch } from '@tauri-apps/plugin-http';
 import UuidTool from "./uuidTool";
 
+
+function AvaterAndInput({ uuid, onChange }: { uuid: string, onChange: (newUuid: string) => void }) {
+    const {
+        nameMapping,
+    } = useAppContext();
+
+
+    return (
+        <div className={style.inputWithAvatar}>
+            {nameMapping[uuid]?.avatar && <div>
+                <img className={style.avatar} src={nameMapping[uuid].avatar} alt="Avatar" />
+                <span>{nameMapping[uuid].name}{nameMapping[uuid].mode === "NotMatch" && "?"}</span>
+            </div>}
+            <input
+                className={`input input-bordered w-full ${!isValidUUID(uuid) ? style.invalidInput : ""}`}
+                placeholder="原UUID"
+                value={uuid}
+                onChange={e => onChange(e.target.value)}
+            />
+        </div>
+    )
+}
+
 function UuidPair({ index, oldUuid, newUuid }: {
     index: number;
     oldUuid: string;
@@ -47,31 +70,9 @@ function UuidPair({ index, oldUuid, newUuid }: {
 
     return (
         <div className={style.pairRow}>
-            <div className={style.inputWithAvatar}>
-                {nameMapping[oldUuid]?.avatar && <div>
-                    <img className={style.avatar} src={nameMapping[oldUuid].avatar} alt="Old UUID Avatar" />
-                    <span>{nameMapping[oldUuid].name}</span>
-                </div>}
-                <input
-                    className={`input input-bordered w-full ${!isValidUUID(oldUuid) ? style.invalidInput : ""}`}
-                    placeholder="原UUID"
-                    value={oldUuid}
-                    onChange={e => changeUuid(index, e.target.value, "Left")}
-                />
-            </div>
+            <AvaterAndInput uuid={oldUuid} onChange={uuid => changeUuid(index, uuid, "Left")} />
             <button className="btn btn-outline" onClick={() => swapUuid(index)}>↔</button>
-            <div className={style.inputWithAvatar}>
-                {nameMapping[newUuid]?.avatar && <div>
-                    <img className={style.avatar} src={nameMapping[newUuid].avatar} alt="New UUID Avatar" />
-                    <span>{nameMapping[newUuid].name}</span>
-                </div>}
-                <input
-                    className={`input input-bordered w-full ${!isValidUUID(newUuid) ? style.invalidInput : ""}`}
-                    placeholder="新UUID"
-                    value={newUuid}
-                    onChange={e => changeUuid(index, e.target.value, "Right")}
-                />
-            </div>
+            <AvaterAndInput uuid={newUuid} onChange={uuid => changeUuid(index, uuid, "Right")} />
             <button className="btn btn-outline btn-error" onClick={() => setUuidMapping(prev => prev.filter((_, i) => i !== index))}>
                 删除
             </button>

@@ -6,7 +6,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use remapper::{
     content_replace::swap_uuids_in_file,
     mca_file::{process_mca_file, process_nbt_file},
@@ -124,9 +124,9 @@ async fn process_world(
 
     // 对于重命名需要排序文件，先深后浅，文件优先于目录，避免重命名导致的路径失效
     all_entries.sort_unstable_by(|l, r| {
-        r.depth().cmp(&l.depth()).then_with(|| {
-            r.file_type().is_file().cmp(&l.file_type().is_file())
-        })
+        r.depth()
+            .cmp(&l.depth())
+            .then_with(|| r.file_type().is_file().cmp(&l.file_type().is_file()))
     });
 
     // 为了避免交换过的文件被重复交换，维护一个访问过的路径集合

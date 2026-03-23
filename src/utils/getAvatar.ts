@@ -109,6 +109,7 @@ async function cachePlayerName(
     specifiedUuid: string | null,
     setNameMapping: Dispatch<SetStateAction<Record<string, PlayerData>>>
 ) {
+    console.log(`正在处理玩家: ${playerName}，指定 UUID: ${specifiedUuid}`);
     const onlineUuid = await getUuidByName(playerName);
     const offlineUuid = playerNameToOfflineUUID(playerName);
     const normalizedOnlineUuid = onlineUuid ? normalizeUUID(onlineUuid) : null;
@@ -120,11 +121,11 @@ async function cachePlayerName(
     setNameMapping(prev => {
         const updates: Record<string, PlayerData> = {};
 
-        if (normalizedOfflineUuid && !prev[normalizedOfflineUuid]) {
+        if (normalizedOfflineUuid && (!prev[normalizedOfflineUuid] || prev[normalizedOfflineUuid].mode !== "Offline")) {
             updates[normalizedOfflineUuid] = { name: playerName, avatar: grayscaleAvatar, mode: "Offline" };
         }
 
-        if (normalizedOnlineUuid && !prev[normalizedOnlineUuid]) {
+        if (normalizedOnlineUuid && (!prev[normalizedOnlineUuid] || prev[normalizedOnlineUuid].mode !== "Online")) {
             updates[normalizedOnlineUuid] = { name: playerName, avatar: avatar, mode: "Online" };
         }
 

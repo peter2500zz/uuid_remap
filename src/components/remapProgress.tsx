@@ -8,6 +8,7 @@ function RemapProgress() {
     const [progress, setProgress] = useState([0, 0, "idle"]);
     const {
         worldPathState,
+        nameMapping,
         uuidMapping,
     } = useAppContext();
 
@@ -26,6 +27,7 @@ function RemapProgress() {
     return (
         <div className={style.container}>
             <button className="btn" onClick={() => {
+                console.log(nameMapping);
                 console.log(uuidMapping);
             }}>debug</button>
             <button className="btn" onClick={async () => {
