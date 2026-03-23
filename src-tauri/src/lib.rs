@@ -93,12 +93,14 @@ async fn process_world(
         .collect();
 
     // 计算总量
-    let total = all_entries.len();
+    let total = (&all_entries)
+        .iter()
+        .filter_map(|entry| entry.file_type().is_file().then_some(()))
+        .collect::<Vec<_>>()
+        .len() + all_entries.len();
     println!("共发现 {} 个条目，开始处理...", total);
 
-    let progress = AtomicUsize::new(0);
-
-    let _ = app.emit("update-progress", (0, total, "NBT 替换"));
+    let _ = app.emit("set-total", total);
 
     // NBT/文件内容 做并行处理
     all_entries
@@ -107,15 +109,28 @@ async fn process_world(
         .filter(|e| e.file_type().is_file())
         .for_each(|entry| {
             let path = entry.path();
+
+            if let Some(extension) = path.extension()
+                && vec!["jar"].contains(&extension.to_string_lossy().as_ref())
+            {
+                let _ = app.emit("finish-task", path);
+
+                return;
+            }
+
+            let _ = app.emit("start-task", path);
+
             if process_mca_file(path, &reverse_map).is_ok() {
                 println!("[MCA] 成功: {}", entry.file_name().to_string_lossy());
             } else if process_nbt_file(path, &reverse_map).is_ok() {
                 println!("[NBT] 成功: {}", entry.file_name().to_string_lossy());
             } else if swap_uuids_in_file(path, &uuid_map).is_ok() {
                 println!("[NOR] 成功: {}", entry.file_name().to_string_lossy());
+            } else {
+                println!("[SKP] 跳过: {}", entry.file_name().to_string_lossy());
             }
-            let current = progress.fetch_add(1, Ordering::Relaxed) + 1;
-            let _ = app.emit("update-progress", (current, total, "NBT 替换"));
+
+            let _ = app.emit("finish-task", path);
         });
 
     println!("NBT 替换耗时: {:.2?}", start_time.elapsed());
@@ -132,19 +147,21 @@ async fn process_world(
     // 为了避免交换过的文件被重复交换，维护一个访问过的路径集合
     let mut visited: HashSet<PathBuf> = HashSet::new();
 
-    let progress = AtomicUsize::new(0);
-
     for entry in &all_entries {
         let path = entry.path();
 
         // 检查路径是否已经被访问过
         if visited.contains(path) {
+            let _ = app.emit("finish-task", path);
             continue;
         }
         // 检查路径是否存在
         if !path.exists() {
+            let _ = app.emit("finish-task", path);
             continue;
         }
+
+        let _ = app.emit("start-task", path);
 
         let (src, dst) =
             exchange_file(path, &patterns, &replacements).map_err(|e| e.to_string())?;
@@ -156,11 +173,9 @@ async fn process_world(
             visited.insert(d);
         }
 
-        let current = progress.fetch_add(1, Ordering::Relaxed) + 1;
-        let _ = app.emit("update-progress", (current, total, "重命名文件"));
-    }
+        let _ = app.emit("finish-task", path);
 
-    let _ = app.emit("update-progress", (total, total, "完成"));
+    }
 
     println!("总耗时: {:.2?}", start_time.elapsed());
 
