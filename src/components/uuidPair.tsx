@@ -48,7 +48,10 @@ function UuidPair({ index, oldUuid, newUuid }: {
     return (
         <div className={style.pairRow}>
             <div className={style.inputWithAvatar}>
-                {nameMapping[oldUuid]?.avatar && <img className={style.avatar} src={nameMapping[oldUuid].avatar} alt="Old UUID Avatar" />}
+                {nameMapping[oldUuid]?.avatar && <div>
+                    <img className={style.avatar} src={nameMapping[oldUuid].avatar} alt="Old UUID Avatar" />
+                    <span>{nameMapping[oldUuid].name}</span>
+                </div>}
                 <input
                     className={`input input-bordered w-full ${!isValidUUID(oldUuid) ? style.invalidInput : ""}`}
                     placeholder="原UUID"
@@ -58,7 +61,10 @@ function UuidPair({ index, oldUuid, newUuid }: {
             </div>
             <button className="btn btn-outline" onClick={() => swapUuid(index)}>↔</button>
             <div className={style.inputWithAvatar}>
-                {nameMapping[newUuid]?.avatar && <img className={style.avatar} src={nameMapping[newUuid].avatar} alt="New UUID Avatar" />}
+                {nameMapping[newUuid]?.avatar && <div>
+                    <img className={style.avatar} src={nameMapping[newUuid].avatar} alt="New UUID Avatar" />
+                    <span>{nameMapping[newUuid].name}</span>
+                </div>}
                 <input
                     className={`input input-bordered w-full ${!isValidUUID(newUuid) ? style.invalidInput : ""}`}
                     placeholder="新UUID"
