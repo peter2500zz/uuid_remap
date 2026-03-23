@@ -2,6 +2,16 @@ use std::{collections::HashMap};
 
 use uuid::Uuid;
 
+pub fn assert_no_chain_or_cycle(map: &HashMap<Uuid, Uuid>) {
+    for (k, v) in map {
+        // 没有环：key 不能映射到自身
+        assert_ne!(k, v, "发现自环: {k} -> {v}");
+
+        // 没有链：value 不能同时是某个 key
+        assert!(!map.contains_key(v), "发现链: {k} -> {v} -> {}", map[v]);
+    }
+}
+
 pub fn to_u128(a: i32, b: i32, c: i32, d: i32) -> u128 {
     let a = a as u32 as u128;
     let b = b as u32 as u128;

@@ -2,6 +2,7 @@ import { AppContext, PlayerData } from "../utils/context";
 import { useState } from "react";
 import FolderSelect from "../components/folderSelect";
 import UuidPairs from "../components/uuidPair";
+import RemapProgress from "../components/remapProgress";
 
 function App() {
 	const [worldPathState, setWorldPathState] = useState({ path: "", isValid: false });
@@ -19,6 +20,7 @@ function App() {
 					<h1 className="text-3xl font-bold">Minecraft UUID 映射工具</h1>
 					<FolderSelect />
 					<UuidPairs />
+					<RemapProgress />
 				</div>
 			</AppContext.Provider>
 		</main>

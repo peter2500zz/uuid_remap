@@ -10,17 +10,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use walkdir::WalkDir;
 
-use crate::utils::create_reverse_map;
-
-fn assert_no_chain_or_cycle(map: &HashMap<Uuid, Uuid>) {
-    for (k, v) in map {
-        // 没有环：key 不能映射到自身
-        assert_ne!(k, v, "发现自环: {k} -> {v}");
-
-        // 没有链：value 不能同时是某个 key
-        assert!(!map.contains_key(v), "发现链: {k} -> {v} -> {}", map[v]);
-    }
-}
+use crate::utils::{assert_no_chain_or_cycle, create_reverse_map};
 
 fn main() {
     let uuid_map = HashMap::from([

@@ -4987,6 +4987,8 @@ name = "uuid_remap"
 version = "0.1.0"
 dependencies = [
  "java-properties",
+ "rayon",
+ "remapper",
  "serde",
  "serde_json",
  "tauri",
@@ -4995,6 +4997,7 @@ dependencies = [
  "tauri-plugin-http",
  "tauri-plugin-opener",
  "uuid",
+ "walkdir",
 ]
 
 [[package]]

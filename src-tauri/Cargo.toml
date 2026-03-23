@@ -25,7 +25,10 @@ serde_json = "1"
 tauri-plugin-dialog = "2"
 uuid = { version = "1.22.0", features = ["v4"] }
 java-properties = "2.0.0"
+rayon = "1.11.0"
 tauri-plugin-http = "2"
+remapper = { path = "remapper" }
+walkdir = "2.5.0"
 
 [workspace]
 members = [
