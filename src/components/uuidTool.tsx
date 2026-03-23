@@ -46,59 +46,62 @@ function UuidTool() {
     const offlineAvatar = nameMapping[offlineUuid]?.avatar;
 
     return (
-        <div className={style.container}>
-            <div className={style.header}>UUID 计算器</div>
+        <div className="collapse collapse-arrow bg-base-100 border-base-300 border">
+            <input type="checkbox" />
+            <div className="collapse-title font-semibold after:start-5 after:end-auto pe-4 ps-12">UUID 计算器</div>
 
-            <div className={style.row}>
-                <label className={style.label}>玩家名称</label>
-                <div className={style.fieldGroup}>
-                    <input
-                        className="input input-bordered w-full"
-                        type="text"
-                        placeholder="输入玩家名称"
-                        value={playerName}
-                        onChange={e => setPlayerName(e.target.value)}
-                        onKeyDown={e => e.key === "Enter" && handleCalculate()}
-                    />
-                    <button className="btn btn-outline" onClick={handleCalculate}>计算</button>
-                </div>
-            </div>
-
-            <div className={style.row}>
-                <label className={style.label}>在线UUID</label>
-                <div className={style.fieldGroup + " " + style.uuidFieldGroup}>
-                    <div className={style.avatarSlot}>
-                        {onlineAvatar
-                            ? <img className={style.avatar} src={onlineAvatar} alt="Online UUID Avatar" />
-                            : <div className={`skeleton ${ifFetchingAvatar ? '' : 'animate-none'} ${style.avatarSkeleton}`} aria-hidden="true" />}
+            <div className="collapse-content text-sm">
+                <div className={style.row}>
+                    <label className={style.label}>玩家名称</label>
+                    <div className={style.fieldGroup}>
+                        <input
+                            className="input input-bordered w-full"
+                            type="text"
+                            placeholder="输入玩家名称"
+                            value={playerName}
+                            onChange={e => setPlayerName(e.target.value)}
+                            onKeyDown={e => e.key === "Enter" && handleCalculate()}
+                        />
+                        <button className="btn btn-outline" onClick={handleCalculate}>计算</button>
                     </div>
-                    <input
-                        className="input input-bordered w-full"
-                        type="text"
-                        placeholder="00000000-0000-0000-0000-000000000000"
-                        value={onlineUuid}
-                        readOnly
-                    />
-                    <button className="btn btn-outline" onClick={() => navigator.clipboard.writeText(onlineUuid)}>复制</button>
                 </div>
-            </div>
 
-            <div className={style.row}>
-                <label className={style.label}>离线UUID</label>
-                <div className={style.fieldGroup + " " + style.uuidFieldGroup}>
-                    <div className={style.avatarSlot}>
-                        {offlineAvatar
-                            ? <img className={style.avatar} src={offlineAvatar} alt="Offline UUID Avatar" />
-                            : <div className={`skeleton ${ifFetchingAvatar ? '' : 'animate-none'} ${style.avatarSkeleton}`} aria-hidden="true" />}
+                <div className={style.row}>
+                    <label className={style.label}>在线UUID</label>
+                    <div className={style.fieldGroup + " " + style.uuidFieldGroup}>
+                        <div className={style.avatarSlot}>
+                            {onlineAvatar
+                                ? <img className={style.avatar} src={onlineAvatar} alt="Online UUID Avatar" />
+                                : <div className={`skeleton ${ifFetchingAvatar ? '' : 'animate-none'} ${style.avatarSkeleton}`} aria-hidden="true" />}
+                        </div>
+                        <input
+                            className="input input-bordered w-full"
+                            type="text"
+                            placeholder="00000000-0000-0000-0000-000000000000"
+                            value={onlineUuid}
+                            readOnly
+                        />
+                        <button className="btn btn-outline" onClick={() => navigator.clipboard.writeText(onlineUuid)}>复制</button>
                     </div>
-                    <input
-                        className="input input-bordered w-full"
-                        type="text"
-                        placeholder="00000000-0000-0000-0000-000000000000"
-                        value={offlineUuid}
-                        readOnly
-                    />
-                    <button className="btn btn-outline" onClick={() => navigator.clipboard.writeText(offlineUuid)}>复制</button>
+                </div>
+
+                <div className={style.row}>
+                    <label className={style.label}>离线UUID</label>
+                    <div className={style.fieldGroup + " " + style.uuidFieldGroup}>
+                        <div className={style.avatarSlot}>
+                            {offlineAvatar
+                                ? <img className={style.avatar} src={offlineAvatar} alt="Offline UUID Avatar" />
+                                : <div className={`skeleton ${ifFetchingAvatar ? '' : 'animate-none'} ${style.avatarSkeleton}`} aria-hidden="true" />}
+                        </div>
+                        <input
+                            className="input input-bordered w-full"
+                            type="text"
+                            placeholder="00000000-0000-0000-0000-000000000000"
+                            value={offlineUuid}
+                            readOnly
+                        />
+                        <button className="btn btn-outline" onClick={() => navigator.clipboard.writeText(offlineUuid)}>复制</button>
+                    </div>
                 </div>
             </div>
         </div>
