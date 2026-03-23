@@ -1,4 +1,4 @@
-mod utils;
+pub mod utils;
 
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use remapper::{

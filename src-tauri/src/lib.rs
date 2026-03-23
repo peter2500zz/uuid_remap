@@ -1,20 +1,22 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs::{self, File},
     io::BufReader,
     path::PathBuf,
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
-use rayon::iter::{ParallelBridge, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
 use remapper::{
     content_replace::swap_uuids_in_file,
     mca_file::{process_mca_file, process_nbt_file},
-    rename_file::iter_folder_and_replace,
-    utils::{assert_no_chain_or_cycle, create_reverse_map},
+    rename_file::exchange_file,
+    utils::{assert_no_chain_or_cycle, create_reverse_map, uuid_swap_variants},
 };
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
 
 #[allow(unused)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,65 +62,107 @@ fn read_player_data(dir_path: String) -> Result<Vec<Uuid>, String> {
 }
 
 #[tauri::command]
-async fn process_world(world_path: String, uuid_map: HashMap<Uuid, Uuid>) -> Result<(), String> {
+async fn process_world(
+    app: AppHandle,
+    world_path: String,
+    uuid_map: HashMap<Uuid, Uuid>,
+) -> Result<(), String> {
     let world_pathbuf = PathBuf::from(world_path);
 
-    // 如果上级目录存在 server.properties，则提升目标路径到上级目录
-    // 这样可以确保处理服务器的资源内容
-    let target_path = if let Some(server_dir_or_not) = world_pathbuf.parent()
-        && server_dir_or_not.join("server.properties").exists()
+    // 如果有 server.properties 则提升
+    let target_path = if let Some(parent) = world_pathbuf.parent()
+        && parent.join("server.properties").exists()
     {
-        server_dir_or_not.to_path_buf()
+        parent.to_path_buf()
     } else {
         world_pathbuf
     };
 
+    // TODO 改为返回错误而不是断言
     assert_no_chain_or_cycle(&uuid_map);
+    // 反转表格是给 nbt remap 用的
     let reverse_map = create_reverse_map(&uuid_map);
 
     let start_time = std::time::Instant::now();
 
-    // 遍历文件
-    let _: Vec<_> = WalkDir::new(&target_path)
+    // 收集所有文件
+    let mut all_entries: Vec<DirEntry> = WalkDir::new(&target_path)
         .max_depth(255)
         .into_iter()
         .flatten()
-        .par_bridge()
-        .map(|entry| {
-            let path = entry.path();
-            if path.exists() && path.is_file() {
-                if let Ok(_) = process_mca_file(path, &reverse_map) {
-                    println!(
-                        "[MCA] 成功: {}",
-                        path.file_name().unwrap().to_string_lossy()
-                    );
-                } else if let Ok(_) = process_nbt_file(path, &reverse_map) {
-                    println!(
-                        "[NBT] 成功: {}",
-                        path.file_name().unwrap().to_string_lossy()
-                    );
-                } else {
-                    match swap_uuids_in_file(path, &uuid_map) {
-                        Ok(_) => println!(
-                            "[NOR] 成功: {}",
-                            path.file_name().unwrap().to_string_lossy()
-                        ),
-                        Err(_) => {}
-                    }
-                }
-            }
-        })
         .collect();
 
-    let duration_nbt = start_time.elapsed();
-    println!("NBT 替换耗时: {:.2?}", duration_nbt);
+    // 计算总量
+    let total = all_entries.len();
+    println!("共发现 {} 个条目，开始处理...", total);
 
-    if let Err(e) = iter_folder_and_replace(&uuid_map, &target_path.to_string_lossy()) {
-        eprintln!("处理文件夹时出错: {}", e);
+    let progress = AtomicUsize::new(0);
+
+    let _ = app.emit("update-progress", (0, total, "NBT 替换"));
+
+    // NBT/文件内容 做并行处理
+    all_entries
+        .clone()
+        .into_par_iter()
+        .filter(|e| e.file_type().is_file())
+        .for_each(|entry| {
+            let path = entry.path();
+            if process_mca_file(path, &reverse_map).is_ok() {
+                println!("[MCA] 成功: {}", entry.file_name().to_string_lossy());
+            } else if process_nbt_file(path, &reverse_map).is_ok() {
+                println!("[NBT] 成功: {}", entry.file_name().to_string_lossy());
+            } else if swap_uuids_in_file(path, &uuid_map).is_ok() {
+                println!("[NOR] 成功: {}", entry.file_name().to_string_lossy());
+            }
+            let current = progress.fetch_add(1, Ordering::Relaxed) + 1;
+            let _ = app.emit("update-progress", (current, total, "NBT 替换"));
+        });
+
+    println!("NBT 替换耗时: {:.2?}", start_time.elapsed());
+
+    let (patterns, replacements) = uuid_swap_variants(&uuid_map);
+
+    // 对于重命名需要排序文件，先深后浅，文件优先于目录，避免重命名导致的路径失效
+    all_entries.sort_unstable_by(|l, r| {
+        r.depth().cmp(&l.depth()).then_with(|| {
+            r.file_type().is_file().cmp(&l.file_type().is_file())
+        })
+    });
+
+    // 为了避免交换过的文件被重复交换，维护一个访问过的路径集合
+    let mut visited: HashSet<PathBuf> = HashSet::new();
+
+    let progress = AtomicUsize::new(0);
+
+    for entry in &all_entries {
+        let path = entry.path();
+
+        // 检查路径是否已经被访问过
+        if visited.contains(path) {
+            continue;
+        }
+        // 检查路径是否存在
+        if !path.exists() {
+            continue;
+        }
+
+        let (src, dst) =
+            exchange_file(path, &patterns, &replacements).map_err(|e| e.to_string())?;
+
+        if let Some(s) = src {
+            visited.insert(s);
+        }
+        if let Some(d) = dst {
+            visited.insert(d);
+        }
+
+        let current = progress.fetch_add(1, Ordering::Relaxed) + 1;
+        let _ = app.emit("update-progress", (current, total, "重命名文件"));
     }
 
-    let duration = start_time.elapsed();
-    println!("总耗时: {:.2?}", duration);
+    let _ = app.emit("update-progress", (total, total, "完成"));
+
+    println!("总耗时: {:.2?}", start_time.elapsed());
 
     Ok(())
 }

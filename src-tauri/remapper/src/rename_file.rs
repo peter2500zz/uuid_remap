@@ -11,7 +11,7 @@ use walkdir::WalkDir;
 
 use crate::utils::uuid_swap_variants;
 
-fn exchange_file(
+pub fn exchange_file(
     path: &Path,
     patterns: &[String],
     replacements: &[String],
