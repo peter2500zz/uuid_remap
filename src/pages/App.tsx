@@ -14,7 +14,7 @@ function App() {
 	const [canNext, setCanNext] = useState(false);
 
 	return (
-		<main className="overflow-hidden min-h-screen w-full" data-theme="cupcake">
+		<main className="overflow-hidden w-full" data-theme="cupcake">
 			<AppContext.Provider value={{
 				worldPathState, setWorldPathState,
 				uuidMapping, setUuidMapping,
@@ -24,13 +24,13 @@ function App() {
 					className="flex transition-transform duration-500 ease-in-out"
 					style={{ transform: `translateX(-${cur * 100}%)` }}
 				>
-					<div className="min-w-full min-h-screen flex flex-col">
+					<div className="min-w-full h-screen flex flex-col">
 						<FolderSelect canNext={canNext} setCanNext={setCanNext} />
 					</div>
-					<div className="min-w-full min-h-screen flex flex-col">
+					<div className="min-w-full h-screen flex flex-col">
 						<UuidPairs />
 					</div>
-					<div className="min-w-full min-h-screen flex flex-col">
+					<div className="min-w-full h-screen flex flex-col">
 						<RemapProgress />
 					</div>
 				</div>

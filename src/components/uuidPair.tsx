@@ -11,14 +11,21 @@ function AvaterAndInput({ uuid, onChange }: { uuid: string, onChange: (newUuid: 
     const {
         nameMapping,
     } = useAppContext();
+    const info = nameMapping[uuid];
 
 
     return (
-        <div className={style.inputWithAvatar}>
-            {nameMapping[uuid]?.avatar && <div>
-                <img className={style.avatar} src={nameMapping[uuid].avatar} alt="Avatar" />
-                <span>{nameMapping[uuid].name}{nameMapping[uuid].mode === "NotMatch" && "?"}</span>
-            </div>}
+        <div className="flex flex-col gap-1 w-full" >
+            {
+                info?.avatar ? (
+                    <div className="flex flex-row items-center gap-2 h-10">
+                        <img className={style.avatar} src={info.avatar} alt="Avatar" />
+                        <span>{info.name}{info.mode === "NotMatch" && "?"}</span>
+                    </div>
+                ) : (
+                    <div className="h-10 w-full" />
+                )
+            }
             <input
                 className={`input input-bordered w-full ${!isValidUUID(uuid) ? style.invalidInput : ""}`}
                 placeholder="原UUID"
@@ -69,7 +76,7 @@ function UuidPair({ index, oldUuid, newUuid }: {
     };
 
     return (
-        <div className={style.pairRow}>
+        <div className="flex flex-row items-end border-base-300 border gap-2 p-2">
             <AvaterAndInput uuid={oldUuid} onChange={uuid => changeUuid(index, uuid, "Left")} />
             <button className="btn btn-outline" onClick={() => swapUuid(index)}>↔</button>
             <AvaterAndInput uuid={newUuid} onChange={uuid => changeUuid(index, uuid, "Right")} />
@@ -81,22 +88,16 @@ function UuidPair({ index, oldUuid, newUuid }: {
 }
 
 function UuidPairs() {
-    const [display, setDisplay] = useState(false);
     const {
-        worldPathState,
         uuidMapping,
         setUuidMapping,
     } = useAppContext();
 
-    useEffect(() => {
-        if (!worldPathState.isValid) {
-            setDisplay(false);
-        }
-    }, [worldPathState.isValid]);
-
     return (
-        <div>
-            <UuidTool />
+        <div className="h-full overflow-y-auto px-4">
+            <div className="px-8 py-6">
+                <UuidTool />
+            </div>
             <div className={style.rows}>
                 {uuidMapping.map(([oldUuid, newUuid], index) => (
                     <UuidPair key={index} index={index} oldUuid={oldUuid} newUuid={newUuid} />
