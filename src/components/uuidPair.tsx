@@ -76,7 +76,7 @@ function UuidPair({ index, oldUuid, newUuid }: {
     };
 
     return (
-        <div className="flex flex-row items-end border-base-300 border gap-2 p-2">
+        <div className="flex flex-row items-end border-base-300 border gap-2 p-2 rounded-xl">
             <AvaterAndInput uuid={oldUuid} onChange={uuid => changeUuid(index, uuid, "Left")} />
             <button className="btn btn-outline" onClick={() => swapUuid(index)}>↔</button>
             <AvaterAndInput uuid={newUuid} onChange={uuid => changeUuid(index, uuid, "Right")} />
@@ -94,18 +94,20 @@ function UuidPairs() {
     } = useAppContext();
 
     return (
-        <div className="h-full overflow-y-auto px-4">
-            <div className="px-8 py-6">
-                <UuidTool />
+        <div className="h-screen overflow-y-auto px-16 py-4 pb-18">
+            <div className="h-full flex flex-col overflow-y-auto overflow-y-scroll pt-2 p-4 border border-base-300 bg-base-100 rounded-xl shadow-sm gap-2">
+                <div className="px-2 pt-2">
+                    <UuidTool />
+                </div>
+                <div className="flex flex-col gap-2">
+                    {uuidMapping.map(([oldUuid, newUuid], index) => (
+                        <UuidPair key={index} index={index} oldUuid={oldUuid} newUuid={newUuid} />
+                    ))}
+                </div>
+                <button className="btn btn-outline" onClick={() => setUuidMapping(prev => [...prev, ["", ""]])}>
+                    +
+                </button>
             </div>
-            <div className={style.rows}>
-                {uuidMapping.map(([oldUuid, newUuid], index) => (
-                    <UuidPair key={index} index={index} oldUuid={oldUuid} newUuid={newUuid} />
-                ))}
-            </div>
-            <button className="btn btn-outline" onClick={() => setUuidMapping(prev => [...prev, ["", ""]])}>
-                +
-            </button>
         </div>
     )
 }

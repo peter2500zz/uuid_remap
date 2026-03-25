@@ -86,7 +86,7 @@ function FolderSelect({ canNext, setCanNext }: { canNext: boolean, setCanNext: D
                     <div className="flex flex-col gap-4">
                         <div role="alert" className="alert">
                             <span>
-                                ❓ 检测到了游戏存档，但是它似乎在一个服务器文件夹下。<br />
+                                ✅ 检测到了游戏存档，但是它似乎在一个服务器文件夹下。<br />
                                 如果这是服务器的存档，推荐选择服务器文件夹以获得更完全的处理。
                             </span>
                         </div>
@@ -203,7 +203,6 @@ function FolderSelect({ canNext, setCanNext }: { canNext: boolean, setCanNext: D
                     className="btn absolute right-2 top-1/2 -translate-y-1/2 w-20 h-10"
                     onClick={async () => {
                         // 点按钮的时候也检查
-
 
                         const selected = await open({ multiple: false, directory: true });
                         if (selected) {

@@ -35,7 +35,7 @@ function App() {
 					</div>
 				</div>
 
-				<div className="fixed bottom-0 right-0 p-4">
+				<div className="fixed bottom-0 right-0 p-4 gap-2 flex">
 					<button
 						className={`btn ${cur === 0 ? "btn-disabled" : ""}`}
 						onClick={() => {
