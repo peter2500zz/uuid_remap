@@ -1,8 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
-import style from "../styles/folderSelect.module.css";
 import { open } from '@tauri-apps/plugin-dialog';
-import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
-import { useAppContext, WorldPathState, WorldPathType } from "../utils/context";
+import { Dispatch, SetStateAction } from "react";
+import { useAppContext } from "../utils/context";
 import { cachePlayerName } from "../utils/getAvatar";
 
 
@@ -11,8 +10,6 @@ interface UserCache {
     uuid: string;
     expiresOn: string;
 }
-
-type ToastKind = "success" | "error" | "warning";
 
 function FolderSelect({ canNext, setCanNext }: { canNext: boolean, setCanNext: Dispatch<SetStateAction<boolean>> }) {
 
@@ -23,67 +20,52 @@ function FolderSelect({ canNext, setCanNext }: { canNext: boolean, setCanNext: D
         setUuidMapping,
     } = useAppContext();
 
-
-    useEffect(() => {
-        const fetchCache = async () => {
-            try {
-                const caches: UserCache[] = await invoke(
-                    "read_cache",
-                    { filePath: `${worldPathState.path}/../usercache.json` }
-                );
-                console.log("读取到的caches:", caches);
-                return caches;
-            } catch (error) {
-                console.error("读取usercache.json失败:", error);
-                return [];
-            }
-        };
-
-        const fetchPlayerData = async () => {
-            try {
-                const playerData: string[] = await invoke(
-                    "read_player_data",
-                    { dirPath: `${worldPathState.path}/playerdata` }
-                );
-                console.log("读取到的playerData:", playerData);
-                return playerData;
-
-            } catch (error) {
-                console.error("读取playerdata失败:", error);
-                return [];
-            }
+    const fetchCache = async (dir: string) => {
+        try {
+            const caches: UserCache[] = await invoke(
+                "read_cache",
+                { filePath: `${dir}/../usercache.json` }
+            );
+            console.log("读取到的caches:", caches);
+            return caches;
+        } catch (error) {
+            console.error("读取usercache.json失败:", error);
+            return [];
         }
+    };
 
-        const fetchAll = async () => {
-            // TODO
-            const [caches, playerData] = await Promise.all([
-                fetchCache(),
-                fetchPlayerData(),
-            ]);
+    const fetchPlayerData = async (dir: string) => {
+        try {
+            const playerData: string[] = await invoke(
+                "read_player_data",
+                { dirPath: `${dir}/playerdata` }
+            );
+            console.log("读取到的playerData:", playerData);
+            return playerData;
 
-            // namemap 增量更新
-            caches.forEach(cache => {
-                cachePlayerName(cache.name, cache.uuid, setNameMapping);
-            });
-            // UUID map 使用全量覆盖
-            const allUuids = new Set([
-                ...caches.map(c => c.uuid),
-                ...playerData,
-            ]);
-            setUuidMapping([...allUuids].map(uuid => [uuid, ""]));
-        };
+        } catch (error) {
+            console.error("读取playerdata失败:", error);
+            return [];
+        }
+    }
 
-        // const trimmedPath = worldPathState.path.trim();
+    const fetchAll = async (dir: string) => {
+        const [caches, playerData] = await Promise.all([
+            fetchCache(dir),
+            fetchPlayerData(dir),
+        ]);
 
-        // if (worldPathState.isValid && trimmedPath && trimmedPath !== loadedPathRef.current) {
-        //     // 能执行到这里说明选择了新的世界目录
-        //     // 清空 UUID 映射表
-        //     setUuidMapping([]);
-        //     loadedPathRef.current = trimmedPath;
-
-        //     fetchAll();
-        // }
-    }, [worldPathState]);
+        // namemap 增量更新
+        caches.forEach(cache => {
+            cachePlayerName(cache.name, cache.uuid, setNameMapping);
+        });
+        // UUID map 使用全量覆盖
+        const allUuids = new Set([
+            ...caches.map(c => c.uuid),
+            ...playerData,
+        ]);
+        setUuidMapping([...allUuids].map(uuid => [uuid, ""]));
+    };
 
     function GenerateAlert() {
         if (!worldPathState.path || worldPathState.type === "NotExist") {
@@ -147,6 +129,7 @@ function FolderSelect({ canNext, setCanNext }: { canNext: boolean, setCanNext: D
                             <div role="alert" className="alert flex justify-between">
                                 <span>仍然使用它？</span>
                                 <button className="btn btn-sm" onClick={() => {
+                                    fetchAll(worldPathState.path);
                                     setCanNext(true);
                                 }}>是的</button>
                             </div>
@@ -163,10 +146,12 @@ function FolderSelect({ canNext, setCanNext }: { canNext: boolean, setCanNext: D
 
         if (serverResult) {
             setCanNext(true);
+            fetchAll(serverResult[1]);
             setWorldPathState({
                 path: dir,
                 type: "Server",
             });
+
 
             return;
         }
@@ -176,6 +161,7 @@ function FolderSelect({ canNext, setCanNext }: { canNext: boolean, setCanNext: D
             const doesServerExits = await invoke<[string, string] | null>("check_server_dir", { dirPath: `${dir}/../` });
 
             setCanNext(true);
+            fetchAll(worldResult);
             setWorldPathState({
                 path: dir,
                 type: doesServerExits ? "WorldButHasServer" : "World",

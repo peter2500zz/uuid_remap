@@ -3,10 +3,8 @@ use std::{
     fs::{self, File},
     io::BufReader,
     path::PathBuf,
-    sync::atomic::{AtomicUsize, Ordering},
 };
 
-use java_properties::read;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use remapper::{
     content_replace::swap_uuids_in_file,
