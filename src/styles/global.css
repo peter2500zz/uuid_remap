@@ -12,6 +12,10 @@
   font-display: swap;
 }
 
+img {
+  image-rendering: pixelated;
+}
+
 input {
   font-family: 'JetBrains Mono Regular', monospace;
 }

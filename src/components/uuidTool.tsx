@@ -48,22 +48,21 @@ function UuidTool() {
     return (
         <div className="collapse collapse-arrow bg-base-100 border-base-300 border">
             <input type="checkbox" />
-            <div className="collapse-title font-semibold after:start-5 after:end-auto pe-4 ps-12">UUID 计算器</div>
+            <div className="collapse-title font-semibold">UUID 计算器</div>
 
-            <div className="collapse-content text-sm">
-                <div className={style.row}>
-                    <label className={style.label}>玩家名称</label>
-                    <div className={style.fieldGroup}>
-                        <input
-                            className="input input-bordered w-full"
-                            type="text"
-                            placeholder="输入玩家名称"
-                            value={playerName}
-                            onChange={e => setPlayerName(e.target.value)}
-                            onKeyDown={e => e.key === "Enter" && handleCalculate()}
-                        />
-                        <button className="btn btn-outline" onClick={handleCalculate}>计算</button>
-                    </div>
+            <div className="collapse-content text-sm flex flex-col gap-2">
+
+                <label className={style.label}>玩家名称</label>
+                <div className={style.fieldGroup}>
+                    <input
+                        className="input input-bordered w-full"
+                        type="text"
+                        placeholder="输入玩家名称"
+                        value={playerName}
+                        onChange={e => setPlayerName(e.target.value)}
+                        onKeyDown={e => e.key === "Enter" && handleCalculate()}
+                    />
+                    <button className="btn btn-outline" onClick={handleCalculate}>计算</button>
                 </div>
 
                 <div className={style.row}>
