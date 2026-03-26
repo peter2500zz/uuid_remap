@@ -46,12 +46,12 @@ function App() {
 							setCur(cur - 1);
 						}}
 					>
-						Prev
+						返回
 					</button>
 					<button className={`btn btn-primary ${(cur >= canNext.length - 1 || !canNext[cur]) ? "btn-disabled" : ""}`} onClick={() => {
 						setCur(cur + 1);
 					}}>
-						Next
+						下一步
 					</button>
 				</div>
 				<ul className="steps fixed bottom-0 left-0">

@@ -69,9 +69,9 @@ function UuidTool() {
                 <div className={style.row}>
                     <label className={style.label}>在线UUID</label>
                     <div className={style.fieldGroup + " " + style.uuidFieldGroup}>
-                        <div className={style.avatarSlot}>
+                        <div>
                             {onlineAvatar
-                                ? <img className={style.avatar} src={onlineAvatar} alt="Online UUID Avatar" />
+                                ? <img className="w-8 h-8 rounded-md" src={onlineAvatar} alt="Online UUID Avatar" />
                                 : <div className={`skeleton ${ifFetchingAvatar ? '' : 'animate-none'} ${style.avatarSkeleton}`} aria-hidden="true" />}
                         </div>
                         <input
@@ -90,7 +90,7 @@ function UuidTool() {
                     <div className={style.fieldGroup + " " + style.uuidFieldGroup}>
                         <div className={style.avatarSlot}>
                             {offlineAvatar
-                                ? <img className={style.avatar} src={offlineAvatar} alt="Offline UUID Avatar" />
+                                ? <img className="w-8 h-8 rounded-md" src={offlineAvatar} alt="Offline UUID Avatar" />
                                 : <div className={`skeleton ${ifFetchingAvatar ? '' : 'animate-none'} ${style.avatarSkeleton}`} aria-hidden="true" />}
                         </div>
                         <input

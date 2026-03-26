@@ -18,8 +18,17 @@ function AvaterAndInput({ uuid, onChange }: { uuid: string, onChange: (newUuid: 
             {
                 info?.avatar ? (
                     <div className="flex flex-row items-center gap-2 h-10">
-                        <img className={style.avatar} src={info.avatar} alt="Avatar" />
-                        <span>{info.name}{info.mode === "NotMatch" && "?"}</span>
+                        <img className="w-8 h-8 rounded-md" src={info.avatar} alt="Avatar" />
+                        <span>{info.name}
+                            {
+                                info.mode === "NotMatch" &&
+                                <div className="tooltip tooltip-top" data-tip="与名字不匹配的 UUID">
+                                    <span className="pl-1 underline font-bold">?</span>
+                                </div>
+                            }
+                        </span>
+
+
                     </div>
                 ) : (
                     <div className="h-10 w-full" />

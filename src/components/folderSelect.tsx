@@ -92,7 +92,7 @@ function FolderSelect() {
                         </div>
                         <div role="alert" className="alert flex justify-between">
                             <span>你想要使用服务器文件夹吗？</span>
-                            <div>
+                            <div className="flex gap-2">
                                 <button className="btn btn-sm btn-primary" onClick={async () => {
                                     setWorldPathState({
                                         path: await dirname(worldPathState.path),
@@ -187,7 +187,7 @@ function FolderSelect() {
 
             <div className="relative w-full max-w-xl">
                 <input
-                    className="input w-full px-5 py-6 border"
+                    className="input w-full px-5 py-6 border shadow-sm"
                     placeholder="/path/to/world"
                     value={worldPathState.path}
                     onChange={async (e) => {
