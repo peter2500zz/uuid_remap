@@ -48,7 +48,7 @@ function UuidTool() {
     return (
         <div className="collapse collapse-arrow bg-base-100 border-base-300 border">
             <input type="checkbox" />
-            <div className="collapse-title font-semibold">UUID 计算器</div>
+            <div className="collapse-title font-semibold after:start-5 after:end-auto pe-4 ps-12">UUID 计算器</div>
 
             <div className="collapse-content text-sm flex flex-col gap-2">
 

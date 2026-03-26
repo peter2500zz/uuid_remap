@@ -1,7 +1,7 @@
 import { AppContext, PlayerData, WorldPathType } from "../utils/context";
 import { useState } from "react";
 import FolderSelect from "../components/folderSelect";
-import UuidPairs from "../components/uuidPair";
+import UuidPairs, { hasDuplicates, hasInvalidUUID } from "../components/uuidPair";
 import RemapProgress from "../components/remapProgress";
 
 
@@ -13,7 +13,7 @@ function App() {
 	const [cur, setCur] = useState(0);
 	const canNext = [
 		worldPathState.type === "Server" || worldPathState.type === "World" || worldPathState.type === "WorldButHasServer" || worldPathState.type === "InvalidButForce",
-		true,
+		!hasDuplicates(uuidMapping) && !hasInvalidUUID(uuidMapping),
 		true,
 	];
 

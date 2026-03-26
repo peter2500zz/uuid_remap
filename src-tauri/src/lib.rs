@@ -26,6 +26,14 @@ struct UserCache {
     expires_on: String,
 }
 
+#[allow(unused)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PlayerData {
+    avatar: Option<String>,
+    name: String,
+    mode: String,
+}
+
 #[tauri::command]
 fn check_world_dir(dir_path: String) -> Result<Option<PathBuf>, String> {
     let path = PathBuf::from(dir_path);
@@ -210,6 +218,50 @@ async fn process_world(
     Ok(())
 }
 
+#[tauri::command]
+async fn export_uuid_map(
+    uuid_map: HashMap<Uuid, Uuid>,
+    name_map: HashMap<Uuid, PlayerData>,
+    path: PathBuf,
+) -> Result<(), String> {
+    let mut jsonc = "{".to_string();
+
+    for (index, (left_uuid, right_uuid)) in uuid_map.iter().enumerate() {
+        if index != 0 {
+            jsonc.push_str("\n");
+        }
+
+        let left_data = name_map.get(&left_uuid);
+
+        let right_data = name_map.get(&right_uuid);
+
+        if left_data.is_some() || right_data.is_some() {
+            jsonc.push_str(&format!(
+                "\n    // {} <-> {}",
+                left_data
+                    .map(|pd| format!("{}[{}]", pd.name, pd.mode))
+                    .unwrap_or("<anonymous>".into()),
+                right_data
+                    .map(|pd| format!("{}[{}]", pd.name, pd.mode))
+                    .unwrap_or("<anonymous>".into())
+            ));
+        }
+
+        jsonc.push_str(&format!(
+            "\n    \"{}\": \"{}\"{}",
+            left_uuid.to_string(),
+            right_uuid.to_string(),
+            if index < uuid_map.len() - 1 { "," } else { "" }
+        ));
+    }
+
+    jsonc.push_str("\n}");
+
+    fs::write(path.join("uuid_map.jsonc"), jsonc).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -222,7 +274,8 @@ pub fn run() {
             read_cache,
             read_player_data,
             process_world,
-            check_dir_exist
+            check_dir_exist,
+            export_uuid_map
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

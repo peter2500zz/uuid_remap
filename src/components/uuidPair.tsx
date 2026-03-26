@@ -1,10 +1,11 @@
-import style from "../styles/uuidPair.module.css";
 import { useAppContext } from "../utils/context";
 import { isValidUUID, normalizeUUID } from "../utils/uuidUtils";
+import { open } from '@tauri-apps/plugin-dialog';
 import { cachePlayerName } from "../utils/getAvatar";
 import { fetch } from '@tauri-apps/plugin-http';
 import UuidTool from "./uuidTool";
 import { useMemo } from "react";
+import { invoke } from "@tauri-apps/api/core";
 
 
 // 检测某个特定字符串是否出现超过一次
@@ -19,12 +20,22 @@ function isStringDuplicated(uuidMapping: [string, string][], target: string): bo
 }
 
 // 检测整个 mapping 中是否存在任意重复字符串
-function hasDuplicates(uuidMapping: [string, string][]): boolean {
+export function hasDuplicates(uuidMapping: [string, string][]): boolean {
     const seen = new Set<string>();
     for (const [a, b] of uuidMapping) {
         for (const s of [a, b]) {
             if (seen.has(s)) return true;
             seen.add(s);
+        }
+    }
+    return false;
+}
+
+// 检测整个 mapping 中是否存在无效UUID
+export function hasInvalidUUID(uuidMapping: [string, string][]): boolean {
+    for (const [a, b] of uuidMapping) {
+        for (const s of [a, b]) {
+            if (!isValidUUID(s)) return true;
         }
     }
     return false;
@@ -44,22 +55,26 @@ function AvaterAndInput({ showAvatar, uuid, onChange }: { showAvatar: boolean, u
 
     return (
         <div className="flex flex-col gap-1 w-full" >
-            <div className={`overflow-hidden transition-all duration-100 ${showAvatar ? "h-10" : "h-0"}`}>
-                {info?.avatar ? (
+
+            {
+                showAvatar && (info?.avatar ? (
                     <div className="flex flex-row items-center gap-2 h-10">
                         <img className="w-8 h-8 rounded-md" src={info.avatar} alt="Avatar" />
                         <span>{info.name}
-                            {info.mode === "NotMatch" &&
+                            {
+                                info.mode === "NotMatch" &&
                                 <div className="tooltip tooltip-top" data-tip="与名字不匹配的 UUID">
                                     <span className="pl-1 underline font-bold">?</span>
                                 </div>
                             }
                         </span>
+
+
                     </div>
                 ) : (
                     <div className="h-10 w-full" />
-                )}
-            </div>
+                ))
+            }
             <div className="tooltip tooltip-top" data-tip={
                 (() => {
                     if (!uuid) return "UUID 不能为空";
@@ -123,7 +138,7 @@ function UuidPair({ index, oldUuid: leftUuid, newUuid: rightUuid }: {
     return (
         <div className="flex flex-row items-end border-base-300 border gap-2 p-2 rounded-xl">
             <AvaterAndInput showAvatar={showAvatarRow} uuid={leftUuid} onChange={uuid => changeUuid(index, uuid, "Left")} />
-            <button className="btn btn-outline" onClick={() => swapUuid(index)}>↔</button>
+            <button className="btn" onClick={() => swapUuid(index)}>↔</button>
             <AvaterAndInput showAvatar={showAvatarRow} uuid={rightUuid} onChange={uuid => changeUuid(index, uuid, "Right")} />
             <button className="btn btn-outline btn-error" onClick={() => setUuidMapping(prev => prev.filter((_, i) => i !== index))}>
                 删除
@@ -136,6 +151,7 @@ function UuidPairs() {
     const {
         uuidMapping,
         setUuidMapping,
+        nameMapping,
     } = useAppContext();
 
     return (
@@ -151,9 +167,24 @@ function UuidPairs() {
                         ))
                     }
                 </div>
-                <button className="btn btn-outline" onClick={() => setUuidMapping(prev => [...prev, ["", ""]])}>
-                    +
-                </button>
+                <div className="flex flex-row gap-2 px-2">
+                    <button className="btn flex-1" onClick={() => {
+                        setUuidMapping(prev => [...prev, ["", ""]])
+                    }}>
+                        +
+                    </button>
+                    <div className="tooltip tooltip-left" data-tip="导出 UUID 映射，可以给命令行版本使用">
+                        <button
+                            className={`btn flex-none ${!hasDuplicates(uuidMapping) && !hasInvalidUUID(uuidMapping) ? "btn-primary" : "btn-disabled"}`} onClick={async () => {
+                                const selected = await open({ multiple: false, directory: true });
+                                if (selected) {
+                                    await invoke("export_uuid_map", { uuidMap: Object.fromEntries(uuidMapping), nameMap: nameMapping, path: selected });
+                                }
+                            }}>
+                            导出
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     )
