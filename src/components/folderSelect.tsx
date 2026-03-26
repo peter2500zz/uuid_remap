@@ -1,8 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from '@tauri-apps/plugin-dialog';
-import { Dispatch, SetStateAction } from "react";
 import { useAppContext } from "../utils/context";
 import { cachePlayerName } from "../utils/getAvatar";
+import { dirname } from "@tauri-apps/api/path";
 
 
 interface UserCache {
@@ -11,7 +11,7 @@ interface UserCache {
     expiresOn: string;
 }
 
-function FolderSelect({ canNext, setCanNext }: { canNext: boolean, setCanNext: Dispatch<SetStateAction<boolean>> }) {
+function FolderSelect() {
 
     const {
         worldPathState,
@@ -93,9 +93,9 @@ function FolderSelect({ canNext, setCanNext }: { canNext: boolean, setCanNext: D
                         <div role="alert" className="alert flex justify-between">
                             <span>你想要使用服务器文件夹吗？</span>
                             <div>
-                                <button className="btn btn-sm btn-primary" onClick={() => {
+                                <button className="btn btn-sm btn-primary" onClick={async () => {
                                     setWorldPathState({
-                                        path: `${worldPathState.path}/../`,
+                                        path: await dirname(worldPathState.path),
                                         type: "Server",
                                     })
                                 }}>是的</button><button className="btn btn-sm" onClick={() => {
@@ -125,12 +125,15 @@ function FolderSelect({ canNext, setCanNext }: { canNext: boolean, setCanNext: D
                             </span>
                         </div>
 
-                        {(worldPathState.type === "Invalid" && !canNext) &&
+                        {(worldPathState.type === "Invalid") &&
                             <div role="alert" className="alert flex justify-between">
                                 <span>仍然使用它？</span>
                                 <button className="btn btn-sm" onClick={() => {
+                                    setWorldPathState({
+                                        path: worldPathState.path,
+                                        type: "InvalidButForce",
+                                    })
                                     fetchAll(worldPathState.path);
-                                    setCanNext(true);
                                 }}>是的</button>
                             </div>
                         }
@@ -145,7 +148,6 @@ function FolderSelect({ canNext, setCanNext }: { canNext: boolean, setCanNext: D
         const serverResult = await invoke<[string, string] | null>("check_server_dir", { dirPath: dir });
 
         if (serverResult) {
-            setCanNext(true);
             fetchAll(serverResult[1]);
             setWorldPathState({
                 path: dir,
@@ -160,7 +162,6 @@ function FolderSelect({ canNext, setCanNext }: { canNext: boolean, setCanNext: D
         if (worldResult) {
             const doesServerExits = await invoke<[string, string] | null>("check_server_dir", { dirPath: `${dir}/../` });
 
-            setCanNext(true);
             fetchAll(worldResult);
             setWorldPathState({
                 path: dir,
@@ -172,7 +173,6 @@ function FolderSelect({ canNext, setCanNext }: { canNext: boolean, setCanNext: D
 
         // console.warn("既不是服务器目录也不是世界目录，标记为无效，但用户选择了使用它", dir);
 
-        setCanNext(false);
         setWorldPathState({
             path: dir,
             type: await invoke<boolean>("check_dir_exist", { dirPath: dir }) ? "Invalid" : "NotExist",

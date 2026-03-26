@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import style from "../styles/uuidPair.module.css";
 import { useAppContext } from "../utils/context";
 import { isValidUUID, normalizeUUID } from "../utils/uuidUtils";

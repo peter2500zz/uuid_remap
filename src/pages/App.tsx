@@ -11,7 +11,11 @@ function App() {
 	const [nameMapping, setNameMapping] = useState<Record<string, PlayerData>>({});
 
 	const [cur, setCur] = useState(0);
-	const [canNext, setCanNext] = useState(false);
+	const canNext = [
+		worldPathState.type === "Server" || worldPathState.type === "World" || worldPathState.type === "WorldButHasServer" || worldPathState.type === "InvalidButForce",
+		true,
+		true,
+	];
 
 	return (
 		<main className="overflow-hidden w-full" data-theme="cupcake">
@@ -25,7 +29,7 @@ function App() {
 					style={{ transform: `translateX(-${cur * 100}%)` }}
 				>
 					<div className="min-w-full h-screen flex flex-col">
-						<FolderSelect canNext={canNext} setCanNext={setCanNext} />
+						<FolderSelect />
 					</div>
 					<div className="min-w-full h-screen flex flex-col">
 						<UuidPairs />
@@ -44,7 +48,7 @@ function App() {
 					>
 						Prev
 					</button>
-					<button className={`btn btn-primary ${(cur === 2 || !canNext) ? "btn-disabled" : ""}`} onClick={() => {
+					<button className={`btn btn-primary ${(cur >= canNext.length - 1 || !canNext[cur]) ? "btn-disabled" : ""}`} onClick={() => {
 						setCur(cur + 1);
 					}}>
 						Next

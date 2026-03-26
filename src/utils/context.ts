@@ -1,6 +1,6 @@
 import { createContext, useContext, Dispatch, SetStateAction } from "react";
 
-type WorldPathType = "Server" | "World" | "WorldButHasServer" | "Invalid" | "NotExist";
+type WorldPathType = "Server" | "World" | "WorldButHasServer" | "Invalid" | "InvalidButForce" | "NotExist";
 
 interface WorldPathState {
     path: string;
