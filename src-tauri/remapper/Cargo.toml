@@ -1,5 +1,7 @@
 [package]
 name = "remapper"
+description = "The core library for the UUID remapping tool, also can run in CLI mode."
+authors = ["peter2500zz"]
 version = "0.1.0"
 edition = "2024"
 

@@ -4995,7 +4995,7 @@ dependencies = [
 
 [[package]]
 name = "uuid_remap"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "java-properties",
  "pathdiff",
