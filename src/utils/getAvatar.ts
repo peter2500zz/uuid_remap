@@ -84,6 +84,12 @@ function canvasToImage(canvas: HTMLCanvasElement): Promise<string> {
 
 const uuidCache = new Map<string, string | null>();
 
+async function normalizeName(name: string): Promise<string> {
+    const response = await fetch(`https://api.mojang.com/users/profiles/minecraft/${name}`);
+    const result = response.ok ? (await response.json()).name : name;
+    return result;
+}
+
 async function getUuidByName(name: string): Promise<string | null> {
     if (uuidCache.has(name)) return uuidCache.get(name)!;
     const response = await fetch(`https://api.mojang.com/users/profiles/minecraft/${name}`);
@@ -110,6 +116,7 @@ async function cachePlayerName(
     setNameMapping: Dispatch<SetStateAction<Record<string, PlayerData>>>
 ) {
     console.log(`正在处理玩家: ${playerName}，指定 UUID: ${specifiedUuid}`);
+    const realName = await normalizeName(playerName);
     const onlineUuid = await getUuidByName(playerName);
     const offlineUuid = playerNameToOfflineUUID(playerName);
     const normalizedOnlineUuid = onlineUuid ? normalizeUUID(onlineUuid) : null;
@@ -126,7 +133,7 @@ async function cachePlayerName(
         }
 
         if (normalizedOnlineUuid && (!prev[normalizedOnlineUuid] || prev[normalizedOnlineUuid].mode !== "Online")) {
-            updates[normalizedOnlineUuid] = { name: playerName, avatar: avatar, mode: "Online" };
+            updates[normalizedOnlineUuid] = { name: realName, avatar: avatar, mode: "Online" };
         }
 
         if (normalizedSpecifiedUuid && normalizedSpecifiedUuid !== normalizedOnlineUuid && normalizedSpecifiedUuid !== normalizedOfflineUuid && !prev[normalizedSpecifiedUuid]) {

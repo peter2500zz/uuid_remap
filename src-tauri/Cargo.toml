@@ -29,6 +29,8 @@ rayon = "1.11.0"
 tauri-plugin-http = "2"
 remapper = { path = "remapper" }
 walkdir = "2.5.0"
+serde_jsonc = "1.0.108"
+pathdiff = "0.2.3"
 
 [workspace]
 members = [

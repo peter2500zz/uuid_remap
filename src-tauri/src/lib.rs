@@ -3,9 +3,9 @@ use std::{
     fs::{self, File},
     io::BufReader,
     path::PathBuf,
-    sync::atomic::{AtomicUsize, Ordering},
 };
 
+use pathdiff::diff_paths;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use remapper::{
     content_replace::swap_uuids_in_file,
@@ -27,9 +27,46 @@ struct UserCache {
     expires_on: String,
 }
 
+#[allow(unused)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PlayerData {
+    avatar: Option<String>,
+    name: String,
+    mode: String,
+}
+
 #[tauri::command]
-fn check_dir(dir_path: String) -> Result<bool, String> {
-    Ok(PathBuf::from(dir_path).join("level.dat").exists())
+fn check_world_dir(dir_path: String) -> Result<Option<PathBuf>, String> {
+    let path = PathBuf::from(dir_path);
+    if path.join("level.dat").exists() {
+        Ok(Some(path))
+    } else {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+fn check_server_dir(dir_path: String) -> Result<Option<(PathBuf, PathBuf)>, String> {
+    let server_path = PathBuf::from(dir_path);
+    if let Ok(file) = File::open(server_path.join("server.properties"))
+        && let Ok(props) = java_properties::read(file)
+        && let Some(level_name) = props.get("level-name")
+    {
+        let world_path = server_path.join(level_name);
+
+        if world_path.join("level.dat").exists() {
+            return Ok(Some((server_path, world_path)));
+        } else {
+            Ok(None)
+        }
+    } else {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+fn check_dir_exist(dir_path: String) -> Result<bool, String> {
+    Ok(PathBuf::from(dir_path).exists())
 }
 
 #[tauri::command]
@@ -97,10 +134,12 @@ async fn process_world(
         .iter()
         .filter_map(|entry| entry.file_type().is_file().then_some(()))
         .collect::<Vec<_>>()
-        .len() + all_entries.len();
+        .len()
+        + all_entries.len();
     println!("共发现 {} 个条目，开始处理...", total);
 
     let _ = app.emit("set-total", total);
+    let _ = app.emit("start-phase", 0);
 
     // NBT/文件内容 做并行处理
     all_entries
@@ -109,16 +148,17 @@ async fn process_world(
         .filter(|e| e.file_type().is_file())
         .for_each(|entry| {
             let path = entry.path();
+            let relative_path = diff_paths(path, &target_path).unwrap_or_else(|| path.to_path_buf());
 
             if let Some(extension) = path.extension()
                 && vec!["jar"].contains(&extension.to_string_lossy().as_ref())
             {
-                let _ = app.emit("finish-task", path);
+                let _ = app.emit("finish-task", &relative_path);
 
                 return;
             }
 
-            let _ = app.emit("start-task", path);
+            let _ = app.emit("start-task", &relative_path);
 
             if process_mca_file(path, &reverse_map).is_ok() {
                 println!("[MCA] 成功: {}", entry.file_name().to_string_lossy());
@@ -130,10 +170,12 @@ async fn process_world(
                 println!("[SKP] 跳过: {}", entry.file_name().to_string_lossy());
             }
 
-            let _ = app.emit("finish-task", path);
+            let _ = app.emit("finish-task", &relative_path);
         });
 
     println!("NBT 替换耗时: {:.2?}", start_time.elapsed());
+
+    let _ = app.emit("start-phase", 1);
 
     let (patterns, replacements) = uuid_swap_variants(&uuid_map);
 
@@ -149,19 +191,20 @@ async fn process_world(
 
     for entry in &all_entries {
         let path = entry.path();
+        let relative_path = diff_paths(path, &target_path).unwrap_or_else(|| path.to_path_buf());
 
         // 检查路径是否已经被访问过
         if visited.contains(path) {
-            let _ = app.emit("finish-task", path);
+            let _ = app.emit("finish-task", &relative_path);
             continue;
         }
         // 检查路径是否存在
         if !path.exists() {
-            let _ = app.emit("finish-task", path);
+            let _ = app.emit("finish-task", &relative_path);
             continue;
         }
 
-        let _ = app.emit("start-task", path);
+        let _ = app.emit("start-task", &relative_path);
 
         let (src, dst) =
             exchange_file(path, &patterns, &replacements).map_err(|e| e.to_string())?;
@@ -173,13 +216,64 @@ async fn process_world(
             visited.insert(d);
         }
 
-        let _ = app.emit("finish-task", path);
-
+        let _ = app.emit("finish-task", &relative_path);
     }
 
     println!("总耗时: {:.2?}", start_time.elapsed());
 
     Ok(())
+}
+
+#[tauri::command]
+async fn export_uuid_map(
+    uuid_map: HashMap<Uuid, Uuid>,
+    name_map: HashMap<Uuid, PlayerData>,
+    path: PathBuf,
+) -> Result<(), String> {
+    let mut jsonc = "{".to_string();
+
+    for (index, (left_uuid, right_uuid)) in uuid_map.iter().enumerate() {
+        if index != 0 {
+            jsonc.push_str("\n");
+        }
+
+        let left_data = name_map.get(&left_uuid);
+
+        let right_data = name_map.get(&right_uuid);
+
+        if left_data.is_some() || right_data.is_some() {
+            jsonc.push_str(&format!(
+                "\n    // {} <-> {}",
+                left_data
+                    .map(|pd| format!("{}[{}]", pd.name, pd.mode))
+                    .unwrap_or("<anonymous>".into()),
+                right_data
+                    .map(|pd| format!("{}[{}]", pd.name, pd.mode))
+                    .unwrap_or("<anonymous>".into())
+            ));
+        }
+
+        jsonc.push_str(&format!(
+            "\n    \"{}\": \"{}\"{}",
+            left_uuid.to_string(),
+            right_uuid.to_string(),
+            if index < uuid_map.len() - 1 { "," } else { "" }
+        ));
+    }
+
+    jsonc.push_str("\n}");
+
+    fs::write(path, jsonc).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn import_uuid_map(path: PathBuf) -> Result<HashMap<Uuid, Uuid>, String> {
+    let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    let uuid_map: HashMap<Uuid, Uuid> =
+        serde_jsonc::from_str(&content).map_err(|e| e.to_string())?;
+    Ok(uuid_map)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -189,10 +283,14 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
-            check_dir,
+            check_world_dir,
+            check_server_dir,
             read_cache,
             read_player_data,
-            process_world
+            process_world,
+            check_dir_exist,
+            export_uuid_map,
+            import_uuid_map
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
