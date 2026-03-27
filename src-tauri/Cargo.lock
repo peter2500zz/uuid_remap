@@ -4998,6 +4998,7 @@ name = "uuid_remap"
 version = "0.1.0"
 dependencies = [
  "java-properties",
+ "pathdiff",
  "rayon",
  "remapper",
  "serde",

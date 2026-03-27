@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import style from "../styles/uuidTool.module.css";
 import { normalizeUUID, playerNameToOfflineUUID } from "../utils/uuidUtils";
 import { cachePlayerName, getUuidByName } from "../utils/getAvatar";
 import { useAppContext } from "../utils/context";
@@ -52,55 +51,51 @@ function UuidTool() {
 
             <div className="collapse-content text-sm flex flex-col gap-2">
 
-                <label className={style.label}>玩家名称</label>
-                <div className={style.fieldGroup}>
+                <label className="label">玩家名称</label>
+                <div className="flex flex-row gap-2">
                     <input
-                        className="input input-bordered w-full"
+                        className="input input-bordered w-full flex-6"
                         type="text"
                         placeholder="输入玩家名称"
                         value={playerName}
                         onChange={e => setPlayerName(e.target.value)}
                         onKeyDown={e => e.key === "Enter" && handleCalculate()}
                     />
-                    <button className="btn btn-outline" onClick={handleCalculate}>计算</button>
+                    <button className="btn flex-4" onClick={handleCalculate}>计算</button>
                 </div>
 
-                <div className={style.row}>
-                    <label className={style.label}>在线UUID</label>
-                    <div className={style.fieldGroup + " " + style.uuidFieldGroup}>
-                        <div>
-                            {onlineAvatar
-                                ? <img className="w-8 h-8 rounded-md" src={onlineAvatar} alt="Online UUID Avatar" />
-                                : <div className={`skeleton ${ifFetchingAvatar ? '' : 'animate-none'} ${style.avatarSkeleton}`} aria-hidden="true" />}
-                        </div>
-                        <input
-                            className="input input-bordered w-full"
-                            type="text"
-                            placeholder="00000000-0000-0000-0000-000000000000"
-                            value={onlineUuid}
-                            readOnly
-                        />
-                        <button className="btn btn-outline" onClick={() => navigator.clipboard.writeText(onlineUuid)}>复制</button>
+                <label className="label">在线UUID</label>
+                <div className="flex gap-2 items-center">
+                    <div className="flex-shrink-0 ">
+                        {onlineAvatar
+                            ? <img className="w-8 h-8 rounded-md" src={onlineAvatar} alt="Online UUID Avatar" />
+                            : <div className={`skeleton ${ifFetchingAvatar ? '' : 'animate-none'} ${"w-8 h-8 rounded-md"}`} aria-hidden="true" />}
                     </div>
+                    <input
+                        className="input input-bordered w-full"
+                        type="text"
+                        placeholder="UUID v4"
+                        value={onlineUuid}
+                        readOnly
+                    />
+                    <button className="btn" onClick={() => navigator.clipboard.writeText(onlineUuid)}>复制</button>
                 </div>
 
-                <div className={style.row}>
-                    <label className={style.label}>离线UUID</label>
-                    <div className={style.fieldGroup + " " + style.uuidFieldGroup}>
-                        <div className={style.avatarSlot}>
-                            {offlineAvatar
-                                ? <img className="w-8 h-8 rounded-md" src={offlineAvatar} alt="Offline UUID Avatar" />
-                                : <div className={`skeleton ${ifFetchingAvatar ? '' : 'animate-none'} ${style.avatarSkeleton}`} aria-hidden="true" />}
-                        </div>
-                        <input
-                            className="input input-bordered w-full"
-                            type="text"
-                            placeholder="00000000-0000-0000-0000-000000000000"
-                            value={offlineUuid}
-                            readOnly
-                        />
-                        <button className="btn btn-outline" onClick={() => navigator.clipboard.writeText(offlineUuid)}>复制</button>
+                <label className="label">离线UUID</label>
+                <div className="flex gap-2 items-center">
+                    <div className="flex-shrink-0">
+                        {offlineAvatar
+                            ? <img className="w-8 h-8 rounded-md" src={offlineAvatar} alt="Offline UUID Avatar" />
+                            : <div className={`skeleton ${ifFetchingAvatar ? '' : 'animate-none'} ${"w-8 h-8 rounded-md"}`} aria-hidden="true" />}
                     </div>
+                    <input
+                        className="input input-bordered w-full"
+                        type="text"
+                        placeholder="UUID v4"
+                        value={offlineUuid}
+                        readOnly
+                    />
+                    <button className="btn" onClick={() => navigator.clipboard.writeText(offlineUuid)}>复制</button>
                 </div>
             </div>
         </div>

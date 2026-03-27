@@ -54,10 +54,10 @@ function App() {
 						下一步
 					</button>
 				</div>
-				<ul className="steps fixed bottom-0 left-0">
-					<li className={`step ${cur >= 0 ? "step-primary" : ""}`}>选择世界目录</li>
-					<li className={`step ${cur >= 1 ? "step-primary" : ""}`}>设定UUID映射</li>
-					<li className={`step ${cur >= 2 ? "step-primary" : ""}`}>原神启动</li>
+				<ul className="steps fixed bottom-0 left-0 w-80 pb-1">
+					<li className={`step ${cur >= 0 ? "step-primary" : ""}`}>选择存档</li>
+					<li className={`step ${cur >= 1 ? "step-primary" : ""}`}>设定映射</li>
+					<li className={`step ${cur >= 2 ? "step-primary" : ""}`}>应用修改</li>
 				</ul>
 			</AppContext.Provider>
 		</main>

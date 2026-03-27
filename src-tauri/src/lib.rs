@@ -5,6 +5,7 @@ use std::{
     path::PathBuf,
 };
 
+use pathdiff::diff_paths;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use remapper::{
     content_replace::swap_uuids_in_file,
@@ -138,6 +139,7 @@ async fn process_world(
     println!("共发现 {} 个条目，开始处理...", total);
 
     let _ = app.emit("set-total", total);
+    let _ = app.emit("start-phase", 0);
 
     // NBT/文件内容 做并行处理
     all_entries
@@ -146,16 +148,17 @@ async fn process_world(
         .filter(|e| e.file_type().is_file())
         .for_each(|entry| {
             let path = entry.path();
+            let relative_path = diff_paths(path, &target_path).unwrap_or_else(|| path.to_path_buf());
 
             if let Some(extension) = path.extension()
                 && vec!["jar"].contains(&extension.to_string_lossy().as_ref())
             {
-                let _ = app.emit("finish-task", path);
+                let _ = app.emit("finish-task", &relative_path);
 
                 return;
             }
 
-            let _ = app.emit("start-task", path);
+            let _ = app.emit("start-task", &relative_path);
 
             if process_mca_file(path, &reverse_map).is_ok() {
                 println!("[MCA] 成功: {}", entry.file_name().to_string_lossy());
@@ -167,10 +170,12 @@ async fn process_world(
                 println!("[SKP] 跳过: {}", entry.file_name().to_string_lossy());
             }
 
-            let _ = app.emit("finish-task", path);
+            let _ = app.emit("finish-task", &relative_path);
         });
 
     println!("NBT 替换耗时: {:.2?}", start_time.elapsed());
+
+    let _ = app.emit("start-phase", 1);
 
     let (patterns, replacements) = uuid_swap_variants(&uuid_map);
 
@@ -186,19 +191,20 @@ async fn process_world(
 
     for entry in &all_entries {
         let path = entry.path();
+        let relative_path = diff_paths(path, &target_path).unwrap_or_else(|| path.to_path_buf());
 
         // 检查路径是否已经被访问过
         if visited.contains(path) {
-            let _ = app.emit("finish-task", path);
+            let _ = app.emit("finish-task", &relative_path);
             continue;
         }
         // 检查路径是否存在
         if !path.exists() {
-            let _ = app.emit("finish-task", path);
+            let _ = app.emit("finish-task", &relative_path);
             continue;
         }
 
-        let _ = app.emit("start-task", path);
+        let _ = app.emit("start-task", &relative_path);
 
         let (src, dst) =
             exchange_file(path, &patterns, &replacements).map_err(|e| e.to_string())?;
@@ -210,7 +216,7 @@ async fn process_world(
             visited.insert(d);
         }
 
-        let _ = app.emit("finish-task", path);
+        let _ = app.emit("finish-task", &relative_path);
     }
 
     println!("总耗时: {:.2?}", start_time.elapsed());
@@ -265,7 +271,8 @@ async fn export_uuid_map(
 #[tauri::command]
 async fn import_uuid_map(path: PathBuf) -> Result<HashMap<Uuid, Uuid>, String> {
     let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    let uuid_map: HashMap<Uuid, Uuid> = serde_jsonc::from_str(&content).map_err(|e| e.to_string())?;
+    let uuid_map: HashMap<Uuid, Uuid> =
+        serde_jsonc::from_str(&content).map_err(|e| e.to_string())?;
     Ok(uuid_map)
 }
 

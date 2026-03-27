@@ -115,7 +115,7 @@ function UuidPair({ index, oldUuid: leftUuid, newUuid: rightUuid }: {
             console.log(`Find new valid UUID: ${normalized}, fetching player name and avatar...`);
 
             fetch(`https://sessionserver.mojang.com/session/minecraft/profile/${normalized}`)
-                .then(res => res.ok ? res.json() : null)
+                .then(res => res.ok ? res.json().catch(() => console.warn(`Not a online player: ${normalized}`)) : null)
                 .then(async data => {
                     if (!data) return;
                     cachePlayerName(data.name, null, setNameMapping)
