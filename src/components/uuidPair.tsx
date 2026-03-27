@@ -1,6 +1,6 @@
 import { useAppContext } from "../utils/context";
 import { isValidUUID, normalizeUUID } from "../utils/uuidUtils";
-import { open } from '@tauri-apps/plugin-dialog';
+import { open, save } from '@tauri-apps/plugin-dialog';
 import { cachePlayerName } from "../utils/getAvatar";
 import { fetch } from '@tauri-apps/plugin-http';
 import UuidTool from "./uuidTool";
@@ -168,15 +168,48 @@ function UuidPairs() {
                     }
                 </div>
                 <div className="flex flex-row gap-2 px-2">
+                    <div className="tooltip tooltip-right" data-tip="从一个 JSON 文件中导入 UUID 映射">
+                        <button
+                            className={`btn flex-none`} onClick={async () => {
+                                const selected = await open({
+                                    multiple: false,
+                                    directory: false,
+                                    filters: [{
+                                        name: 'JSON 文件',
+                                        extensions: ['json', 'jsonc']
+                                    }, {
+                                        name: '所有文件',
+                                        extensions: ['*']
+                                    }]
+                                });
+
+                                if (selected) {
+                                    const uuidMap = await invoke<Record<string, string>>("import_uuid_map", { path: selected });
+                                    setUuidMapping(prev => [...prev, ...Object.entries(uuidMap)]);
+                                }
+                            }}>
+                            导入
+                        </button>
+                    </div>
                     <button className="btn flex-1" onClick={() => {
                         setUuidMapping(prev => [...prev, ["", ""]])
                     }}>
                         +
                     </button>
-                    <div className="tooltip tooltip-left" data-tip="导出 UUID 映射，可以给命令行版本使用">
+                    <div className="tooltip tooltip-left" data-tip="导出 UUID 映射，可以给 CLI 版本使用">
                         <button
-                            className={`btn flex-none ${!hasDuplicates(uuidMapping) && !hasInvalidUUID(uuidMapping) ? "btn-primary" : "btn-disabled"}`} onClick={async () => {
-                                const selected = await open({ multiple: false, directory: true });
+                            className={`btn flex-none ${!hasDuplicates(uuidMapping) && !hasInvalidUUID(uuidMapping) && uuidMapping.length > 0 ? "btn-primary" : "btn-disabled"}`} onClick={async () => {
+                                const selected = await save({
+                                    filters: [{
+                                        name: 'JSONC 文件',
+                                        extensions: ['jsonc']
+                                    }, {
+                                        name: '所有文件',
+                                        extensions: ['*']
+                                    }],
+                                    defaultPath: 'uuid_map.jsonc'
+                                });
+
                                 if (selected) {
                                     await invoke("export_uuid_map", { uuidMap: Object.fromEntries(uuidMapping), nameMap: nameMapping, path: selected });
                                 }

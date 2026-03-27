@@ -257,9 +257,16 @@ async fn export_uuid_map(
 
     jsonc.push_str("\n}");
 
-    fs::write(path.join("uuid_map.jsonc"), jsonc).map_err(|e| e.to_string())?;
+    fs::write(path, jsonc).map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+#[tauri::command]
+async fn import_uuid_map(path: PathBuf) -> Result<HashMap<Uuid, Uuid>, String> {
+    let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    let uuid_map: HashMap<Uuid, Uuid> = serde_jsonc::from_str(&content).map_err(|e| e.to_string())?;
+    Ok(uuid_map)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -275,7 +282,8 @@ pub fn run() {
             read_player_data,
             process_world,
             check_dir_exist,
-            export_uuid_map
+            export_uuid_map,
+            import_uuid_map
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
