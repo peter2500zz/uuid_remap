@@ -6,6 +6,7 @@ import { fetch } from '@tauri-apps/plugin-http';
 import UuidTool from "./uuidTool";
 import { useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import toast from "react-hot-toast";
 
 
 // 检测某个特定字符串是否出现超过一次
@@ -184,8 +185,13 @@ function UuidPairs() {
                                 });
 
                                 if (selected) {
-                                    const uuidMap = await invoke<Record<string, string>>("import_uuid_map", { path: selected });
-                                    setUuidMapping(prev => [...prev, ...Object.entries(uuidMap)]);
+                                    try {
+                                        const uuidMap = await invoke<Record<string, string>>("import_uuid_map", { path: selected });
+                                        setUuidMapping(prev => [...prev, ...Object.entries(uuidMap)]);
+                                        toast.success("导入成功");
+                                    } catch (e) {
+                                        toast.error(`导入失败: ${(e as Error).message || String(e)}`);
+                                    }
                                 }
                             }}>
                             导入
@@ -211,7 +217,12 @@ function UuidPairs() {
                                 });
 
                                 if (selected) {
-                                    await invoke("export_uuid_map", { uuidMap: Object.fromEntries(uuidMapping), nameMap: nameMapping, path: selected });
+                                    try {
+                                        await invoke("export_uuid_map", { uuidMap: Object.fromEntries(uuidMapping), nameMap: nameMapping, path: selected });
+                                        toast.success("导出成功");
+                                    } catch (e) {
+                                        toast.error(`导出失败: ${(e as Error).message || String(e)}`);
+                                    }
                                 }
                             }}>
                             导出

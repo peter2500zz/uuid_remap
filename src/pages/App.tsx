@@ -3,6 +3,7 @@ import { useState } from "react";
 import FolderSelect from "../components/folderSelect";
 import UuidPairs, { hasDuplicates, hasInvalidUUID } from "../components/uuidPair";
 import RemapProgress from "../components/remapProgress";
+import toast, { Toaster } from "react-hot-toast";
 
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
 				uuidMapping, setUuidMapping,
 				nameMapping, setNameMapping,
 			}}>
+				<div><Toaster/></div>
 				<div
 					className="flex transition-transform duration-500 ease-in-out"
 					style={{ transform: `translateX(-${cur * 100}%)` }}
@@ -40,6 +42,11 @@ function App() {
 				</div>
 
 				<div className="fixed bottom-0 right-0 p-4 gap-2 flex">
+					<button className="btn" onClick={() => {
+						toast("Hello World");
+					}}>
+						DEBUG
+					</button>
 					<button
 						className={`btn ${cur === 0 ? "btn-disabled" : ""}`}
 						onClick={() => {
