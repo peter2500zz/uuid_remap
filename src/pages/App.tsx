@@ -7,25 +7,32 @@ import toast, { Toaster } from "react-hot-toast";
 
 
 function App() {
+	const [onProgressing, setOnProgressing] = useState(false);
 	const [worldPathState, setWorldPathState] = useState({ path: "", type: "Invalid" as WorldPathType });
 	const [uuidMapping, setUuidMapping] = useState<[string, string][]>([]);
 	const [nameMapping, setNameMapping] = useState<Record<string, PlayerData>>({});
 
 	const [cur, setCur] = useState(0);
+	const canBack = [
+		false, 
+		true, 
+		!onProgressing
+	];
 	const canNext = [
 		worldPathState.type === "Server" || worldPathState.type === "World" || worldPathState.type === "WorldButHasServer" || worldPathState.type === "InvalidButForce",
 		!hasDuplicates(uuidMapping) && !hasInvalidUUID(uuidMapping) && uuidMapping.length > 0,
-		true,
+		false,
 	];
 
 	return (
 		<main className="overflow-hidden w-full" data-theme="cupcake">
 			<AppContext.Provider value={{
+				onProgressing, setOnProgressing,
 				worldPathState, setWorldPathState,
 				uuidMapping, setUuidMapping,
 				nameMapping, setNameMapping,
 			}}>
-				<div><Toaster/></div>
+				<div><Toaster /></div>
 				<div
 					className="flex transition-transform duration-500 ease-in-out"
 					style={{ transform: `translateX(-${cur * 100}%)` }}
@@ -48,7 +55,7 @@ function App() {
 						DEBUG
 					</button>
 					<button
-						className={`btn ${cur === 0 ? "btn-disabled" : ""}`}
+						className={`btn ${(cur === 0 || !canBack[cur]) ? "btn-disabled" : ""}`}
 						onClick={() => {
 							setCur(cur - 1);
 						}}

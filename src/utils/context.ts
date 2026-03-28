@@ -16,6 +16,8 @@ interface PlayerData {
 }
 
 interface AppContextType {
+    onProgressing: boolean;
+    setOnProgressing: Dispatch<SetStateAction<boolean>>;
     worldPathState: WorldPathState;
     setWorldPathState: Dispatch<SetStateAction<WorldPathState>>;
     uuidMapping: [string, string][];
