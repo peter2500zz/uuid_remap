@@ -27,40 +27,46 @@ fn detect_compress_flavor(data: &[u8]) -> Flavor {
 }
 
 fn process_compound(compound: &mut NbtCompound, uuid_map: &HashMap<Uuid, Uuid>) {
-    let compound_cloned = compound.clone();
-
     // 处理 1.16 之前奇怪的 UUID 规则
     let mut new_uuids = HashMap::new();
+    let mut uuid_keys_matched = Vec::new();
 
     // 先找所有 Most 键
-    for (most_key, _) in compound.into_iter().filter(|&(label, _)| label.ends_with("Most")) {
+    for (most_key, _) in compound
+        .into_iter()
+        .filter(|&(label, _)| label.ends_with("Most"))
+    {
         if let Some(key_prefix) = most_key.strip_suffix("Most") {
             // 拼接出猜测的 Least 键
             let least_key = format!("{}Least", key_prefix);
 
-            // 用这俩去查询，都查到了就是有
-            if let Ok(uuid_most) = compound_cloned.get::<_, i64>(most_key)
-                && let Ok(uuid_least) = compound_cloned.get::<_, i64>(&least_key)
-            {
-                // 把两个 u64 拼成一个 u128，再转成 UUID
-                let old_uuid = Uuid::from_u128((uuid_most as u128) << 64 | (uuid_least as u128));
+            uuid_keys_matched.push((most_key.clone(), least_key));
+        }
+    }
 
-                if let Some(&other_uuid) = uuid_map.get(&old_uuid) {
-                    new_uuids.insert(
-                        most_key.clone(),
-                        NbtTag::Long((other_uuid.as_u128() >> 64) as i64),
-                    );
-                    new_uuids.insert(
-                        least_key,
-                        NbtTag::Long((other_uuid.as_u128() & (u128::MAX >> 64)) as i64),
-                    );
-                }
+    while let Some((most_key, least_key)) = uuid_keys_matched.pop() {
+        // 用这俩去查询，都查到了就是有
+        if let Ok(uuid_most) = compound.get::<_, i64>(&most_key)
+            && let Ok(uuid_least) = compound.get::<_, i64>(&least_key)
+        {
+            // 把两个 u64 拼成一个 u128，再转成 UUID
+            let old_uuid = Uuid::from_u128((uuid_most as u128) << 64 | (uuid_least as u128));
+
+            if let Some(&other_uuid) = uuid_map.get(&old_uuid) {
+                new_uuids.insert(
+                    most_key, 
+                    NbtTag::Long((other_uuid.as_u128() >> 64) as i64)
+                );
+                new_uuids.insert(
+                    least_key,
+                    NbtTag::Long((other_uuid.as_u128() & (u128::MAX >> 64)) as i64),
+                );
             }
         }
     }
 
-    for (k, v) in new_uuids {
-        compound.insert(k, v);
+    for (key, new_tag) in new_uuids {
+        compound.insert(key, new_tag);
     }
 }
 
@@ -68,57 +74,47 @@ fn process_compound(compound: &mut NbtCompound, uuid_map: &HashMap<Uuid, Uuid>) 
 ///
 /// 触发递归的只有列表和复合标签
 fn process_nbt(nbt: &mut NbtCompound, uuid_map: &HashMap<Uuid, Uuid>) {
-    let mut nbt_tag_to_process = Vec::new();
+    let mut stack = Vec::with_capacity(nbt.len());
 
     process_compound(nbt, uuid_map);
     for (_, tag) in nbt {
-        nbt_tag_to_process.push(tag);
+        stack.push(tag);
     }
 
-    loop {
-        let mut nbt_tag_to_process_next = Vec::new();
-
-        for tag in nbt_tag_to_process {
-            match tag {
-                NbtTag::String(string) => {
-                    if let Ok(old_uuid) = Uuid::parse_str(string) {
-                        if let Some(&other_uuid) = uuid_map.get(&old_uuid) {
-                            // println!("Mapping UUID {} to {}", old_uuid, other_uuid);
-                            *string = other_uuid.to_string();
-                        }
+    while let Some(tag) = stack.pop() {
+        match tag {
+            NbtTag::String(string) => {
+                if let Ok(old_uuid) = Uuid::parse_str(string) {
+                    if let Some(&other_uuid) = uuid_map.get(&old_uuid) {
+                        // println!("Mapping UUID {} to {}", old_uuid, other_uuid);
+                        *string = other_uuid.to_string();
                     }
                 }
-                NbtTag::IntArray(int_array) => {
-                    if int_array.len() == 4 {
-                        let old_uuid = i32s_to_uuid4(int_array);
-
-                        if let Some(&other_uuid) = uuid_map.get(&old_uuid) {
-                            // println!("Mapping UUID {} to {}", old_uuid, other_uuid);
-                            let new_ints = uuid4_to_i32s(other_uuid);
-                            int_array.copy_from_slice(&new_ints);
-                        }
-                    }
-                }
-                NbtTag::List(list) => {
-                    for item in list {
-                        nbt_tag_to_process_next.push(item);
-                    }
-                }
-                NbtTag::Compound(compound) => {
-                    process_compound(compound, uuid_map);
-                    for (_, tag) in compound {
-                        nbt_tag_to_process_next.push(tag);
-                    }
-                }
-                _ => {}
             }
-        }
+            NbtTag::IntArray(int_array) => {
+                if int_array.len() == 4 {
+                    let old_uuid = i32s_to_uuid4(int_array);
 
-        if nbt_tag_to_process_next.is_empty() {
-            break;
+                    if let Some(&other_uuid) = uuid_map.get(&old_uuid) {
+                        // println!("Mapping UUID {} to {}", old_uuid, other_uuid);
+                        let new_ints = uuid4_to_i32s(other_uuid);
+                        int_array.copy_from_slice(&new_ints);
+                    }
+                }
+            }
+            NbtTag::List(list) => {
+                for item in list {
+                    stack.push(item);
+                }
+            }
+            NbtTag::Compound(compound) => {
+                process_compound(compound, uuid_map);
+                for (_, tag) in compound {
+                    stack.push(tag);
+                }
+            }
+            _ => {}
         }
-
-        nbt_tag_to_process = nbt_tag_to_process_next;
     }
 }
 
