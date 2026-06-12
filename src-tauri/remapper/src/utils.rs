@@ -46,6 +46,23 @@ pub fn uuid4_to_i32s(uuid: Uuid) -> [i32; 4] {
     from_u128(uuid.as_u128())
 }
 
+/// 按映射表条目原样生成 Aho-Corasick 模式与替换串，不自动补反向
+///
+/// 如需双向交换，请传入 [`create_reverse_map`] 的结果
+pub fn uuid_map_variants(map: &HashMap<Uuid, Uuid>) -> (Vec<String>, Vec<String>) {
+    let mut patterns = Vec::new();
+    let mut replacements = Vec::new();
+
+    for (from, to) in map {
+        let (p, r) = uuid_variants(*from, *to);
+        patterns.extend(p);
+        replacements.extend(r);
+    }
+
+    (patterns, replacements)
+}
+
+/// 由单向映射表生成双向交换的 Aho-Corasick 模式与替换串
 pub fn uuid_swap_variants(swaps: &HashMap<Uuid, Uuid>) -> (Vec<String>, Vec<String>) {
     let mut patterns = Vec::new();
     let mut replacements = Vec::new();

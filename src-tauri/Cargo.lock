@@ -3453,7 +3453,6 @@ dependencies = [
  "mca",
  "quartz_nbt",
  "rayon",
- "serde_json",
  "serde_jsonc",
  "uuid",
  "walkdir",

@@ -5,16 +5,14 @@ use std::{
     path::Path,
 };
 
+use aho_corasick::AhoCorasick;
 use anyhow::Result;
 use chardetng::EncodingDetector;
 use mca::{RegionReader, RegionWriter};
 use quartz_nbt::{NbtCompound, NbtTag, io::Flavor};
 use uuid::Uuid;
 
-use crate::{
-    content_replace::swap_uuids_in_string,
-    utils::{create_reverse_map, i32s_to_uuid4, uuid4_to_i32s},
-};
+use crate::utils::{i32s_to_uuid4, uuid4_to_i32s, uuid_map_variants};
 
 /// Minecraft 自身的 NBT 嵌套深度上限
 const MAX_NBT_DEPTH: usize = 512;
@@ -93,10 +91,17 @@ fn process_compound(compound: &mut NbtCompound, uuid_map: &HashMap<Uuid, Uuid>) 
     }
 }
 
-/// 对于每个 NBT，会递归调用此函数以处理可能的所有值
+/// 遍历整棵 NBT 树并交换其中的 UUID
 ///
-/// 触发递归的只有列表和复合标签
-fn process_nbt(nbt: &mut NbtCompound, uuid_map: &HashMap<Uuid, Uuid>) {
+/// 字符串统一交给文本算法（`ac`/`replacements`）做单遍双向替换，
+/// 同时覆盖整串与嵌入在长字符串中的 UUID；
+/// int 数组和 Most/Least 长整数对则用 `uuid_map` 查表交换
+fn process_nbt(
+    nbt: &mut NbtCompound,
+    uuid_map: &HashMap<Uuid, Uuid>,
+    ac: &AhoCorasick,
+    replacements: &[String],
+) {
     let mut stack = Vec::with_capacity(nbt.len());
 
     process_compound(nbt, uuid_map);
@@ -107,11 +112,8 @@ fn process_nbt(nbt: &mut NbtCompound, uuid_map: &HashMap<Uuid, Uuid>) {
     while let Some(tag) = stack.pop() {
         match tag {
             NbtTag::String(string) => {
-                if let Ok(old_uuid) = Uuid::parse_str(string) {
-                    if let Some(&other_uuid) = uuid_map.get(&old_uuid) {
-                        // println!("Mapping UUID {} to {}", old_uuid, other_uuid);
-                        *string = other_uuid.to_string();
-                    }
+                if ac.is_match(string.as_str()) {
+                    *string = ac.replace_all(string, replacements);
                 }
             }
             NbtTag::IntArray(int_array) => {
@@ -145,31 +147,29 @@ fn process_nbt(nbt: &mut NbtCompound, uuid_map: &HashMap<Uuid, Uuid>) {
 pub fn process_nbt_file(path: &Path, uuid_map: &HashMap<Uuid, Uuid>) -> Result<()> {
     let bytes = fs::read(path)?;
 
-    let mut detector = EncodingDetector::new();
-    detector.feed(&bytes, true);
-    let encoding = detector.guess(None, true);
-    let (cow, _, had_errors) = encoding.decode(&bytes);
-    if had_errors {
-        // eprintln!("警告：解码时部分字节无法识别");
-    }
+    let (patterns, replacements) = uuid_map_variants(uuid_map);
+    let ac = AhoCorasick::new(&patterns)?;
 
-    // println!("[TEST] {} {}", serde_json::from_str::<serde_json::Value>(&cow).is_err(), path.display());
+    // SNBT 解析器过于宽容（jsonc 等非严格 JSON 的文本也能被「成功」解析然后改写损坏），
+    // 因此只对 .snbt 扩展名的文件按 SNBT 处理，其余文本交给纯文本替换路径
+    if path.extension().unwrap_or_default() == "snbt" {
+        let mut detector = EncodingDetector::new();
+        detector.feed(&bytes, true);
+        let encoding = detector.guess(None, true);
+        let (cow, _, _) = encoding.decode(&bytes);
 
-    if max_bracket_depth(&cow) <= MAX_NBT_DEPTH
-        && serde_json::from_str::<serde_json::Value>(&cow).is_err()
-        && let Ok(mut snbt) = quartz_nbt::snbt::parse(&cow)
-    {
+        if max_bracket_depth(&cow) > MAX_NBT_DEPTH {
+            return Err(anyhow::anyhow!("括号嵌套过深，不是有效的 SNBT，已跳过"));
+        }
+
+        let mut snbt = quartz_nbt::snbt::parse(&cow)?;
         println!("[SNBT] {}", path.display());
-        // 是 SNBT 格式，处理后再写回去
-        process_nbt(&mut snbt, uuid_map);
+        process_nbt(&mut snbt, uuid_map, &ac, &replacements);
 
-        // 别忘了替换里面的字符串
-        let new_snbt = swap_uuids_in_string(&snbt.to_string(), &create_reverse_map(uuid_map));
-
+        let new_snbt = snbt.to_string();
         let (encoded, _, _) = encoding.encode(&new_snbt);
         // 如果没区别就不写了
         if encoded == bytes {
-            // println!("文件 {:?} 内容未发生变化，已跳过", path);
             return Err(anyhow::anyhow!("文件内容未发生变化，已跳过"));
         }
         fs::write(path, encoded.as_ref())?;
@@ -178,14 +178,13 @@ pub fn process_nbt_file(path: &Path, uuid_map: &HashMap<Uuid, Uuid>) -> Result<(
         let flavor = detect_compress_flavor(&bytes);
         let mut cursor = Cursor::new(bytes);
         let (mut nbt, root_name) = quartz_nbt::io::read_nbt(&mut cursor, flavor)?;
-        process_nbt(&mut nbt, uuid_map);
+        process_nbt(&mut nbt, uuid_map, &ac, &replacements);
 
         let mut output = Vec::new();
         quartz_nbt::io::write_nbt(&mut output, Some(&root_name), &nbt, flavor)?;
 
         // 如果没区别就不写了
         if output == cursor.into_inner() {
-            // println!("文件 {:?} 内容未发生变化，已跳过", path);
             return Err(anyhow::anyhow!("文件内容未发生变化，已跳过"));
         }
         fs::write(path, output)?;
@@ -197,6 +196,9 @@ pub fn process_nbt_file(path: &Path, uuid_map: &HashMap<Uuid, Uuid>) -> Result<(
 /// 解析 mca 文件，并提取其中的区块与 NBT 数据
 pub fn process_mca_file(mca_path: &Path, uuid_map: &HashMap<Uuid, Uuid>) -> Result<()> {
     let mca_file = fs::read(mca_path)?;
+
+    let (patterns, replacements) = uuid_map_variants(uuid_map);
+    let ac = AhoCorasick::new(&patterns)?;
 
     let mut region = RegionReader::new(&mca_file)?;
     let mut new_region = RegionWriter::new();
@@ -210,7 +212,7 @@ pub fn process_mca_file(mca_path: &Path, uuid_map: &HashMap<Uuid, Uuid>) -> Resu
 
             let mut cursor = Cursor::new(buffer);
             let (mut nbt, root_name) = quartz_nbt::io::read_nbt(&mut cursor, Flavor::Uncompressed)?;
-            process_nbt(&mut nbt, uuid_map);
+            process_nbt(&mut nbt, uuid_map, &ac, &replacements);
 
             let mut output = Vec::new();
             quartz_nbt::io::write_nbt(&mut output, Some(&root_name), &nbt, Flavor::Uncompressed)?;
@@ -252,6 +254,54 @@ fn deeply_nested_text_is_skipped() -> Result<()> {
     fs::remove_file(&path)?;
 
     assert!(result.is_err());
+    Ok(())
+}
+
+#[test]
+fn jsonc_not_rewritten_as_snbt() -> Result<()> {
+    use crate::utils::create_reverse_map;
+    use std::str::FromStr;
+
+    let content = "{\n    // Peter_2500[Online] <-> Peter_2500[Offline]\n    \"9db4226c-1015-40da-8fa5-4335aab896b6\": \"59c66d96-d356-364a-a84e-0511b286a31b\"\n}";
+    let path = std::env::temp_dir().join("uuid_remap_test_map.jsonc");
+    fs::write(&path, content)?;
+
+    let uuid_map = create_reverse_map(&HashMap::from([(
+        Uuid::from_str("9db4226c-1015-40da-8fa5-4335aab896b6")?,
+        Uuid::from_str("59c66d96-d356-364a-a84e-0511b286a31b")?,
+    )]));
+
+    let result = process_nbt_file(&path, &uuid_map);
+    let after = fs::read_to_string(&path)?;
+    fs::remove_file(&path)?;
+
+    // 非 .snbt 的文本不应被当作 SNBT 改写，应原样落到纯文本替换路径
+    assert!(result.is_err());
+    assert_eq!(after, content);
+    Ok(())
+}
+
+#[test]
+fn snbt_exact_uuid_string_swapped_once() -> Result<()> {
+    use crate::utils::create_reverse_map;
+    use std::str::FromStr;
+
+    let path = std::env::temp_dir().join("uuid_remap_test_swap.snbt");
+    fs::write(&path, r#"{owner:"9db4226c-1015-40da-8fa5-4335aab896b6"}"#)?;
+
+    // 双向表：曾经的双重交换 bug 会让整串 UUID 被换回原值
+    let uuid_map = create_reverse_map(&HashMap::from([(
+        Uuid::from_str("9db4226c-1015-40da-8fa5-4335aab896b6")?,
+        Uuid::from_str("59c66d96-d356-364a-a84e-0511b286a31b")?,
+    )]));
+
+    let result = process_nbt_file(&path, &uuid_map);
+    let after = fs::read_to_string(&path)?;
+    fs::remove_file(&path)?;
+
+    result?;
+    assert!(after.contains("59c66d96-d356-364a-a84e-0511b286a31b"));
+    assert!(!after.contains("9db4226c"));
     Ok(())
 }
 
