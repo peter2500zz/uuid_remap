@@ -110,7 +110,10 @@ async function getPlayerAvatar(uuid: string): Promise<string | null> {
     return await overlayImageRegions(details.textures.SKIN.url);
 }
 
-// 通过 UUID 反查在线玩家并缓存其信息；离线/未知 UUID 查不到，安静返回
+// 通过 UUID 反查在线玩家并缓存其信息
+//
+// 查询期间会写入一个 Loading 占位条目（UI 据此显示 skeleton），
+// 无结果或出错时移除占位；无结果（离线/未知 UUID）和真正的错误分开记日志
 async function cachePlayerByUuid(
     uuid: string,
     setPlayerInfoMap: Dispatch<SetStateAction<PlayerInfoMap>>
@@ -118,15 +121,41 @@ async function cachePlayerByUuid(
     const normalized = normalizeUUID(uuid);
     if (!normalized) return;
 
+    setPlayerInfoMap(prev => prev[normalized]
+        ? prev
+        : { ...prev, [normalized]: { name: "", avatar: null, mode: "Loading" } });
+
+    const removeLoading = () => setPlayerInfoMap(prev => {
+        // 查询成功时占位已被真实数据覆盖（mode 不再是 Loading），不会误删
+        if (prev[normalized]?.mode !== "Loading") return prev;
+        const next = { ...prev };
+        delete next[normalized];
+        return next;
+    });
+
     try {
         const response = await fetch(`https://sessionserver.mojang.com/session/minecraft/profile/${normalized}`);
-        if (!response.ok) return;
+
+        if (response.status === 204 || response.status === 404) {
+            console.log(`没有对应的在线玩家: ${normalized}`);
+            return;
+        }
+        if (!response.ok) {
+            console.warn(`查询玩家信息失败: HTTP ${response.status}（${normalized}）`);
+            return;
+        }
+
         const data = await response.json();
-        if (!data?.name) return;
+        if (!data?.name) {
+            console.log(`没有对应的在线玩家: ${normalized}`);
+            return;
+        }
 
         await cachePlayerName(data.name, normalized, setPlayerInfoMap);
     } catch (error) {
-        console.warn(`通过 UUID 查询玩家信息失败: ${normalized}`, error);
+        console.warn(`查询玩家信息出错: ${normalized}`, error);
+    } finally {
+        removeLoading();
     }
 }
 
@@ -156,7 +185,7 @@ async function cachePlayerName(
             updates[normalizedOnlineUuid] = { name: realName, avatar: avatar, mode: "Online" };
         }
 
-        if (normalizedSpecifiedUuid && normalizedSpecifiedUuid !== normalizedOnlineUuid && normalizedSpecifiedUuid !== normalizedOfflineUuid && !prev[normalizedSpecifiedUuid]) {
+        if (normalizedSpecifiedUuid && normalizedSpecifiedUuid !== normalizedOnlineUuid && normalizedSpecifiedUuid !== normalizedOfflineUuid && (!prev[normalizedSpecifiedUuid] || prev[normalizedSpecifiedUuid].mode === "Loading")) {
             updates[normalizedSpecifiedUuid] = { name: playerName, avatar: grayscaleAvatar, mode: "NotMatch" };
         }
 

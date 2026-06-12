@@ -30,9 +30,15 @@ function AvatarAndInput({ showAvatar, uuid, onChange, onSendToCalculator }: {
     const error = uuidErrorMessage(uuid, isDuplicated);
 
     return (
-        <div className="flex flex-col gap-1 w-full">
-            {
-                showAvatar && (info?.avatar ? (
+        <div className="flex flex-col w-full">
+            {/* 常驻容器 + 高度过渡，头像出现/消失时行高平滑变化而不是突变 */}
+            <div className={`overflow-hidden transition-[height] duration-300 ease-in-out ${showAvatar ? "h-11" : "h-0"}`}>
+                {info?.mode === "Loading" ? (
+                    <div className="flex flex-row items-center gap-2 h-10">
+                        <div className="skeleton w-8 h-8 rounded-md" aria-hidden="true" />
+                        <span className="text-sm text-base-content/50">查询中...</span>
+                    </div>
+                ) : info?.avatar ? (
                     <div className="flex flex-row items-center gap-2 h-10">
                         <img className="w-8 h-8 rounded-md" src={info.avatar} alt={`${info.name} 的头像`} />
                         <span>{info.name}
@@ -50,10 +56,8 @@ function AvatarAndInput({ showAvatar, uuid, onChange, onSendToCalculator }: {
                             计算
                         </button>
                     </div>
-                ) : (
-                    <div className="h-10 w-full" />
-                ))
-            }
+                ) : null}
+            </div>
             <div className={error ? "tooltip tooltip-top" : ""} data-tip={error ?? undefined}>
                 <input
                     className={`input input-bordered w-full ${error ? "border-error" : ""}`}
@@ -79,9 +83,13 @@ function UuidPairRow({ index, pair, onSendToCalculator }: {
     } = useAppContext();
     const [leftUuid, rightUuid] = pair;
 
-    // 任意一侧有头像时整行显示头像区，保证左右输入框对齐；
+    // 任意一侧有头像或正在查询时整行显示头像区，保证左右输入框对齐；
     // 删除按钮锚定在卡片顶部，因此各行高度不一致也不影响连续删除
-    const showAvatarRow = !!(playerInfoMap[leftUuid]?.avatar || playerInfoMap[rightUuid]?.avatar);
+    const sideHasInfo = (uuid: string) => {
+        const info = playerInfoMap[uuid];
+        return !!info && (!!info.avatar || info.mode === "Loading");
+    };
+    const showAvatarRow = sideHasInfo(leftUuid) || sideHasInfo(rightUuid);
 
     // 输入了一个尚未见过的有效 UUID 时，尝试拉取对应的在线玩家信息
     const fetchProfileIfNeeded = (uuid: string) => {

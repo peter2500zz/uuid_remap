@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { normalizeUUID, playerNameToOfflineUUID } from "../utils/uuidUtils";
 import { cachePlayerName, getUuidByName } from "../utils/getAvatar";
 import { useAppContext } from "../utils/context";
@@ -19,6 +19,7 @@ function UuidTool({ calcRequest }: { calcRequest?: CalculatorRequest | null }) {
     const [playerName, setPlayerName] = useState("");
     const [isQuerying, setIsQuerying] = useState(false);
     const [queried, setQueried] = useState(false);
+    const rootRef = useRef<HTMLDivElement>(null);
     const {
         worldPathState,
         playerInfoMap,
@@ -59,6 +60,19 @@ function UuidTool({ calcRequest }: { calcRequest?: CalculatorRequest | null }) {
         calculate(calcRequest.name);
     }, [calcRequest]);
 
+    // 展开时点击计算器以外的区域（如背后的列表）自动收起，点击本身照常生效
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const onPointerDown = (event: PointerEvent) => {
+            if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("pointerdown", onPointerDown);
+        return () => document.removeEventListener("pointerdown", onPointerDown);
+    }, [isOpen]);
+
     const copyToClipboard = (uuid: string) => {
         navigator.clipboard.writeText(uuid);
         toast.success("已复制");
@@ -70,7 +84,7 @@ function UuidTool({ calcRequest }: { calcRequest?: CalculatorRequest | null }) {
     const offlineAvatar = playerInfoMap[offlineUuid]?.avatar;
 
     return (
-        <div className="relative flex-none border-b border-base-300">
+        <div ref={rootRef} className="relative flex-none border-b border-base-300">
             <button
                 className="w-full flex items-center gap-2 px-4 h-12 font-semibold text-left transition-colors hover:bg-base-200"
                 aria-expanded={isOpen}
@@ -80,12 +94,16 @@ function UuidTool({ calcRequest }: { calcRequest?: CalculatorRequest | null }) {
                 UUID 计算器
             </button>
 
-            {/* 关闭时 invisible：既参与过渡动画，又不可见、不可聚焦 */}
-            <div className={`
-                absolute top-full inset-x-0 z-20 bg-base-100 border-b border-base-300 shadow-lg p-4 text-sm flex flex-col gap-2
-                origin-top transition-all duration-200 ease-out
-                ${isOpen ? "visible opacity-100 translate-y-0" : "invisible opacity-0 -translate-y-2"}
-            `}>
+            {/* 裁剪容器：面板在其中整体滑入滑出，底部留白用于显示阴影和圆角 */}
+            <div className="absolute top-full inset-x-0 z-20 overflow-hidden pb-6 pointer-events-none">
+                {/* 关闭时 invisible：既参与过渡动画，又不可见、不可聚焦；
+                    位移在 -100% 基础上再多移出 1.5rem，让向下投射的阴影也随滑动连续移出，
+                    避免过渡结束 visibility 翻转时残留的阴影带突然消失 */}
+                <div className={`
+                    pointer-events-auto bg-base-100 border border-t-0 border-base-300 rounded-b-xl shadow-lg p-4 text-sm flex flex-col gap-2
+                    transition-all duration-300 ease-out
+                    ${isOpen ? "visible translate-y-0" : "invisible -translate-y-[calc(100%+1.5rem)]"}
+                `}>
                     <label className="label" htmlFor="uuid-tool-player-name">玩家名称</label>
                     <div className="flex flex-row gap-2">
                         <input
@@ -136,6 +154,7 @@ function UuidTool({ calcRequest }: { calcRequest?: CalculatorRequest | null }) {
                         <button className="btn" disabled={!offlineUuid} onClick={() => copyToClipboard(offlineUuid)}>复制</button>
                     </div>
                 </div>
+            </div>
         </div>
     )
 }

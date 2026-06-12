@@ -8,7 +8,8 @@ interface WorldPathState {
     type: WorldPathType;
 }
 
-type PlayerMode = "Online" | "Offline" | "NotMatch";
+/// Loading 是按 UUID 反查期间的占位态，查询结束后会被真实数据覆盖或移除
+type PlayerMode = "Online" | "Offline" | "NotMatch" | "Loading";
 
 interface PlayerData {
     avatar: string | null;
