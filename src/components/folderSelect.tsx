@@ -3,7 +3,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { useRef } from "react";
 import { useAppContext, WorldPathState } from "../utils/context";
 import { cachePlayerByUuid, cachePlayerName } from "../utils/getAvatar";
-import { normalizeUUID } from "../utils/uuidUtils";
+import { createUuidPair, normalizeUUID } from "../utils/uuidUtils";
 import { dirname } from "@tauri-apps/api/path";
 import toast from "react-hot-toast";
 
@@ -138,7 +138,7 @@ function FolderSelect() {
             ...caches.map(c => c.uuid),
             ...playerData,
         ]);
-        setUuidPairs([...allUuids].map(uuid => [uuid, ""]));
+        setUuidPairs([...allUuids].map(uuid => createUuidPair(uuid)));
     };
 
     const updatePath = async (dir: string) => {

@@ -1,5 +1,5 @@
 import { useAppContext } from "../utils/context";
-import { isValidUUID, isUuidDuplicated, isMappingReady, normalizeUUID, UuidPair } from "../utils/uuidUtils";
+import { createUuidPair, isValidUUID, isUuidDuplicated, isMappingReady, normalizeUUID, UuidPair } from "../utils/uuidUtils";
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { cachePlayerByUuid } from "../utils/getAvatar";
 import UuidTool, { CalculatorRequest } from "./uuidTool";
@@ -71,8 +71,7 @@ function AvatarAndInput({ showAvatar, uuid, onChange, onSendToCalculator }: {
 }
 
 // 交换是双向的，左右两个 UUID 没有方向之分
-function UuidPairRow({ index, pair, onSendToCalculator }: {
-    index: number;
+function UuidPairRow({ pair, onSendToCalculator }: {
     pair: UuidPair;
     onSendToCalculator: (playerName: string) => void;
 }) {
@@ -81,7 +80,7 @@ function UuidPairRow({ index, pair, onSendToCalculator }: {
         playerInfoMap,
         setPlayerInfoMap,
     } = useAppContext();
-    const [leftUuid, rightUuid] = pair;
+    const { left: leftUuid, right: rightUuid } = pair;
 
     // 任意一侧有头像或正在查询时整行显示头像区，保证左右输入框对齐；
     // 删除按钮锚定在卡片顶部，因此各行高度不一致也不影响连续删除
@@ -100,30 +99,28 @@ function UuidPairRow({ index, pair, onSendToCalculator }: {
         cachePlayerByUuid(normalized, setPlayerInfoMap);
     };
 
-    const changeSide = (side: 0 | 1, uuid: string) => {
+    const changeSide = (side: "left" | "right", uuid: string) => {
         fetchProfileIfNeeded(uuid);
 
         const normalized = normalizeUUID(uuid) ?? uuid;
-        setUuidPairs(prev => prev.map((p, i) => {
-            if (i !== index) return p;
-            const next: UuidPair = [...p];
-            next[side] = normalized;
-            return next;
+        setUuidPairs(prev => prev.map(p => {
+            if (p.id !== pair.id) return p;
+            return side === "left" ? { ...p, left: normalized } : { ...p, right: normalized };
         }));
     };
 
     return (
         <div className="relative flex flex-row items-end border-base-300 border gap-2 p-2 pr-12 rounded-xl transition-colors hover:border-base-content/20">
-            <AvatarAndInput showAvatar={showAvatarRow} uuid={leftUuid} onChange={uuid => changeSide(0, uuid)} onSendToCalculator={onSendToCalculator} />
+            <AvatarAndInput showAvatar={showAvatarRow} uuid={leftUuid} onChange={uuid => changeSide("left", uuid)} onSendToCalculator={onSendToCalculator} />
             <div className="tooltip tooltip-top h-10 flex items-center px-1" data-tip="两个 UUID 将互相交换">
                 <span className="font-bold text-base-content/60 select-none">↔</span>
             </div>
-            <AvatarAndInput showAvatar={showAvatarRow} uuid={rightUuid} onChange={uuid => changeSide(1, uuid)} onSendToCalculator={onSendToCalculator} />
+            <AvatarAndInput showAvatar={showAvatarRow} uuid={rightUuid} onChange={uuid => changeSide("right", uuid)} onSendToCalculator={onSendToCalculator} />
             {/* 锚定在卡片右上角：删除后下一张卡片顶部正好补位，连续删除时点击位置不漂移 */}
             <button
                 className="btn btn-sm btn-circle btn-ghost text-error absolute top-2 right-2"
                 aria-label="删除这一对 UUID"
-                onClick={() => setUuidPairs(prev => prev.filter((_, i) => i !== index))}
+                onClick={() => setUuidPairs(prev => prev.filter(p => p.id !== pair.id))}
             >
                 ✕
             </button>
@@ -158,7 +155,7 @@ function UuidPairs() {
 
         try {
             const uuidMap = await invoke<Record<string, string>>("import_uuid_map", { path: selected });
-            setUuidPairs(prev => [...prev, ...Object.entries(uuidMap)]);
+            setUuidPairs(prev => [...prev, ...Object.entries(uuidMap).map(([left, right]) => createUuidPair(left, right))]);
             toast.success("导入成功");
         } catch (e) {
             toast.error(`导入失败: ${(e as Error).message || String(e)}`);
@@ -179,7 +176,7 @@ function UuidPairs() {
         if (!selected) return;
 
         try {
-            await invoke("export_uuid_map", { uuidMap: Object.fromEntries(uuidPairs), nameMap: playerInfoMap, path: selected });
+            await invoke("export_uuid_map", { uuidMap: Object.fromEntries(uuidPairs.map(p => [p.left, p.right])), nameMap: playerInfoMap, path: selected });
             toast.success("导出成功");
         } catch (e) {
             toast.error(`导出失败: ${(e as Error).message || String(e)}`);
@@ -193,8 +190,8 @@ function UuidPairs() {
                 <UuidTool calcRequest={calcRequest} />
                 <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 p-4 pb-2">
                     {
-                        uuidPairs.map((pair, index) => (
-                            <UuidPairRow key={index} index={index} pair={pair} onSendToCalculator={sendToCalculator} />
+                        uuidPairs.map(pair => (
+                            <UuidPairRow key={pair.id} pair={pair} onSendToCalculator={sendToCalculator} />
                         ))
                     }
                 </div>
@@ -204,7 +201,7 @@ function UuidPairs() {
                             导入
                         </button>
                     </div>
-                    <button className="btn flex-1" onClick={() => setUuidPairs(prev => [...prev, ["", ""]])}>
+                    <button className="btn flex-1" onClick={() => setUuidPairs(prev => [...prev, createUuidPair()])}>
                         +
                     </button>
                     <div className="tooltip tooltip-left" data-tip="导出 UUID 交换表，可以给 CLI 版本使用">

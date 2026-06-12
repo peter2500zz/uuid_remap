@@ -1,7 +1,20 @@
 import { md5 } from "js-md5";
 
 /// 一对将被双向互换的 UUID，左右没有方向之分
-type UuidPair = [left: string, right: string];
+///
+/// id 仅用于 React 列表渲染的稳定标识（用 index 作 key 会在删除时
+/// 让后续行复用错误的 DOM 节点），不参与业务逻辑
+interface UuidPair {
+    id: string;
+    left: string;
+    right: string;
+}
+
+let nextPairId = 0;
+
+function createUuidPair(left = "", right = ""): UuidPair {
+    return { id: `pair-${nextPairId++}`, left, right };
+}
 
 function playerNameToOfflineUUID(playerName: string): string {
     const hash = new Uint8Array(md5.array(`OfflinePlayer:${playerName}`));
@@ -27,7 +40,7 @@ function normalizeUUID(uuid: string | null): string | null {
 // 检测某个 UUID 在交换列表中是否出现超过一次
 function isUuidDuplicated(uuidPairs: UuidPair[], target: string): boolean {
     let count = 0;
-    for (const [left, right] of uuidPairs) {
+    for (const { left, right } of uuidPairs) {
         if (left === target) count++;
         if (right === target) count++;
         if (count > 1) return true;
@@ -38,8 +51,8 @@ function isUuidDuplicated(uuidPairs: UuidPair[], target: string): boolean {
 // 检测交换列表中是否存在任意重复的 UUID
 function hasDuplicates(uuidPairs: UuidPair[]): boolean {
     const seen = new Set<string>();
-    for (const pair of uuidPairs) {
-        for (const uuid of pair) {
+    for (const { left, right } of uuidPairs) {
+        for (const uuid of [left, right]) {
             if (seen.has(uuid)) return true;
             seen.add(uuid);
         }
@@ -49,7 +62,7 @@ function hasDuplicates(uuidPairs: UuidPair[]): boolean {
 
 // 检测交换列表中是否存在无效 UUID
 function hasInvalidUUID(uuidPairs: UuidPair[]): boolean {
-    return uuidPairs.some(pair => pair.some(uuid => !isValidUUID(uuid)));
+    return uuidPairs.some(({ left, right }) => !isValidUUID(left) || !isValidUUID(right));
 }
 
 // 交换列表非空且没有重复/无效 UUID 时才可以应用
@@ -65,5 +78,6 @@ export {
     hasDuplicates,
     hasInvalidUUID,
     isMappingReady,
+    createUuidPair,
 };
 export type { UuidPair };

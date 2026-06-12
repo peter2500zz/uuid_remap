@@ -97,7 +97,7 @@ function RemapProgress() {
         try {
             await invoke("process_world", {
                 worldPath: worldPathState.path,
-                uuidMap: Object.fromEntries(uuidPairs),
+                uuidMap: Object.fromEntries(uuidPairs.map(p => [p.left, p.right])),
             });
             setLastRun({
                 total: totalRef.current,
