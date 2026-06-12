@@ -69,6 +69,8 @@ function UuidPairRow({ index, pair }: { index: number; pair: UuidPair }) {
     } = useAppContext();
     const [leftUuid, rightUuid] = pair;
 
+    // 任意一侧有头像时整行显示头像区，保证左右输入框对齐；
+    // 删除按钮锚定在卡片顶部，因此各行高度不一致也不影响连续删除
     const showAvatarRow = !!(playerInfoMap[leftUuid]?.avatar || playerInfoMap[rightUuid]?.avatar);
 
     // 输入了一个尚未见过的有效 UUID 时，尝试拉取对应的在线玩家信息
@@ -99,14 +101,19 @@ function UuidPairRow({ index, pair }: { index: number; pair: UuidPair }) {
     };
 
     return (
-        <div className="flex flex-row items-end border-base-300 border gap-2 p-2 rounded-xl">
+        <div className="relative flex flex-row items-end border-base-300 border gap-2 p-2 pr-12 rounded-xl transition-colors hover:border-base-content/20">
             <AvatarAndInput showAvatar={showAvatarRow} uuid={leftUuid} onChange={uuid => changeSide(0, uuid)} />
             <div className="tooltip tooltip-top h-10 flex items-center px-1" data-tip="两个 UUID 将互相交换">
                 <span className="font-bold text-base-content/60 select-none">↔</span>
             </div>
             <AvatarAndInput showAvatar={showAvatarRow} uuid={rightUuid} onChange={uuid => changeSide(1, uuid)} />
-            <button className="btn btn-outline btn-error" onClick={() => setUuidPairs(prev => prev.filter((_, i) => i !== index))}>
-                删除
+            {/* 锚定在卡片右上角：删除后下一张卡片顶部正好补位，连续删除时点击位置不漂移 */}
+            <button
+                className="btn btn-sm btn-circle btn-ghost text-error absolute top-2 right-2"
+                aria-label="删除这一对 UUID"
+                onClick={() => setUuidPairs(prev => prev.filter((_, i) => i !== index))}
+            >
+                ✕
             </button>
         </div>
     )
@@ -164,7 +171,7 @@ function UuidPairs() {
     };
 
     return (
-        <div className="h-screen overflow-y-auto px-16 py-4 pb-18">
+        <div className="h-screen px-16 py-4 pb-18">
             <div className="h-full flex flex-col overflow-y-auto pt-2 p-4 border border-base-300 bg-base-100 rounded-xl shadow-sm gap-2">
                 <div className="pt-2">
                     <UuidTool />

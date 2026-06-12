@@ -39,15 +39,12 @@ function App() {
 					className="flex transition-transform duration-500 ease-in-out"
 					style={{ transform: `translateX(-${step * 100}%)` }}
 				>
-					<div className="min-w-full h-screen flex flex-col">
-						<FolderSelect />
-					</div>
-					<div className="min-w-full h-screen flex flex-col">
-						<UuidPairs />
-					</div>
-					<div className="min-w-full h-screen flex flex-col">
-						<RemapProgress />
-					</div>
+					{[FolderSelect, UuidPairs, RemapProgress].map((Page, index) => (
+						// 非当前页设为 inert，防止 Tab 聚焦到屏幕外的元素时浏览器强行滚动容器
+						<div key={index} className="min-w-full h-screen flex flex-col" inert={step !== index}>
+							<Page />
+						</div>
+					))}
 				</div>
 
 				<div className="fixed bottom-0 right-0 p-4 gap-2 flex">
