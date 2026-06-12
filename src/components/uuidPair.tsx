@@ -31,8 +31,9 @@ function AvatarAndInput({ showAvatar, uuid, onChange, onSendToCalculator }: {
 
     return (
         <div className="flex flex-col w-full">
-            {/* 常驻容器 + 高度过渡，头像出现/消失时行高平滑变化而不是突变 */}
-            <div className={`overflow-hidden transition-[height] duration-300 ease-in-out ${showAvatar ? "h-11" : "h-0"}`}>
+            {/* 常驻容器 + 高度过渡，头像出现/消失时行高平滑变化而不是突变；
+                悬停时放开裁剪，否则行内的 tooltip 气泡会被 overflow-hidden 裁掉 */}
+            <div className={`overflow-hidden hover:overflow-visible transition-[height] duration-300 ease-in-out ${showAvatar ? "h-11" : "h-0"}`}>
                 {info?.mode === "Loading" ? (
                     <div className="flex flex-row items-center gap-2 h-10">
                         <div className="skeleton w-8 h-8 rounded-md" aria-hidden="true" />
@@ -44,7 +45,7 @@ function AvatarAndInput({ showAvatar, uuid, onChange, onSendToCalculator }: {
                         <span>{info.name}
                             {
                                 info.mode === "NotMatch" &&
-                                <div className="tooltip tooltip-top" data-tip="与名字不匹配的 UUID">
+                                <div className="tooltip tooltip-bottom" data-tip="与名字不匹配的 UUID">
                                     <span className="pl-1 underline font-bold">?</span>
                                 </div>
                             }
