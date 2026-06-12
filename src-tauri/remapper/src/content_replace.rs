@@ -1,6 +1,6 @@
 use aho_corasick::AhoCorasick;
 use anyhow::Result;
-use chardetng::EncodingDetector;
+use chardetng::{EncodingDetector, Iso2022JpDetection, Utf8Detection};
 use std::{collections::HashMap, fs, path::Path};
 use content_inspector::inspect;
 use uuid::Uuid;
@@ -20,9 +20,9 @@ pub fn swap_uuids_in_file(path: &Path, swaps: &HashMap<Uuid, Uuid>) -> Result<()
         return Err(anyhow::anyhow!("文件是二进制文件，已跳过"));
     }
 
-    let mut detector = EncodingDetector::new();
+    let mut detector = EncodingDetector::new(Iso2022JpDetection::Allow);
     detector.feed(&bytes, true);
-    let encoding = detector.guess(None, true);
+    let encoding = detector.guess(None, Utf8Detection::Allow);
     let (cow, _, had_errors) = encoding.decode(&bytes);
     if had_errors {
         // eprintln!("警告：解码时部分字节无法识别");

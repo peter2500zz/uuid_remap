@@ -8,7 +8,7 @@ edition = "2024"
 [dependencies]
 aho-corasick = "1.1.4"
 anyhow = "1.0.102"
-chardetng = "0.1.17"
+chardetng = "1.0.0"
 clap = { version = "4.6.1", features = ["derive"] }
 content_inspector = "0.2.4"
 encoding_rs = "0.8.35"

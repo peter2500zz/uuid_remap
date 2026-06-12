@@ -7,7 +7,7 @@ use std::{
 
 use aho_corasick::AhoCorasick;
 use anyhow::Result;
-use chardetng::EncodingDetector;
+use chardetng::{EncodingDetector, Iso2022JpDetection, Utf8Detection};
 use mca::{RegionReader, RegionWriter};
 use quartz_nbt::{NbtCompound, NbtTag, io::Flavor};
 use uuid::Uuid;
@@ -153,9 +153,9 @@ pub fn process_nbt_file(path: &Path, uuid_map: &HashMap<Uuid, Uuid>) -> Result<(
     // SNBT 解析器过于宽容（jsonc 等非严格 JSON 的文本也能被「成功」解析然后改写损坏），
     // 因此只对 .snbt 扩展名的文件按 SNBT 处理，其余文本交给纯文本替换路径
     if path.extension().unwrap_or_default() == "snbt" {
-        let mut detector = EncodingDetector::new();
+        let mut detector = EncodingDetector::new(Iso2022JpDetection::Allow);
         detector.feed(&bytes, true);
-        let encoding = detector.guess(None, true);
+        let encoding = detector.guess(None, Utf8Detection::Allow);
         let (cow, _, _) = encoding.decode(&bytes);
 
         if max_bracket_depth(&cow) > MAX_NBT_DEPTH {
