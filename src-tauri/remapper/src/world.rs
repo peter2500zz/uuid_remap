@@ -86,14 +86,21 @@ pub fn process_world(
 
             on_progress(ProgressEvent::StartTask(relative_path.clone()));
 
-            if process_mca_file(path, &reverse_map).is_ok() {
-                println!("[MCA] 成功: {}", entry.file_name().to_string_lossy());
-            } else if process_nbt_file(path, &reverse_map).is_ok() {
-                println!("[NBT] 成功: {}", entry.file_name().to_string_lossy());
-            } else if swap_uuids_in_file(path, uuid_map).is_ok() {
-                println!("[NOR] 成功: {}", entry.file_name().to_string_lossy());
-            } else {
-                println!("[SKP] 跳过: {}", entry.file_name().to_string_lossy());
+            let file_name = entry.file_name().to_string_lossy();
+
+            match process_mca_file(path, &reverse_map) {
+                Ok(()) => println!("[MCA] 成功: {}", file_name),
+                Err(mca_err) => match process_nbt_file(path, &reverse_map) {
+                    Ok(()) => println!("[NBT] 成功: {}", file_name),
+                    Err(nbt_err) => match swap_uuids_in_file(path, uuid_map) {
+                        Ok(()) => println!("[NOR] 成功: {}", file_name),
+                        // 跳过时把各级尝试的失败原因一并打到终端，便于排查
+                        Err(swap_err) => println!(
+                            "[SKP] 跳过: {}（mca: {mca_err} | nbt: {nbt_err} | 文本: {swap_err}）",
+                            file_name
+                        ),
+                    },
+                },
             }
 
             on_progress(ProgressEvent::FinishTask(relative_path));
