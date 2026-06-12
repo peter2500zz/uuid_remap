@@ -16,6 +16,29 @@ use crate::{
     utils::{create_reverse_map, i32s_to_uuid4, uuid4_to_i32s},
 };
 
+/// Minecraft 自身的 NBT 嵌套深度上限
+const MAX_NBT_DEPTH: usize = 512;
+
+/// 线性扫描文本的最大括号嵌套深度
+///
+/// quartz_nbt 的 SNBT 解析器是递归实现且没有深度限制，
+/// 病态嵌套的文本（例如几十万个连续 `[`）会直接栈溢出，解析前先用它预检
+fn max_bracket_depth(text: &str) -> usize {
+    let mut depth: usize = 0;
+    let mut max_depth = 0;
+    for byte in text.bytes() {
+        match byte {
+            b'[' | b'{' => {
+                depth += 1;
+                max_depth = max_depth.max(depth);
+            }
+            b']' | b'}' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+    }
+    max_depth
+}
+
 fn detect_compress_flavor(data: &[u8]) -> Flavor {
     match data {
         [0x1f, 0x8b, ..] => Flavor::GzCompressed,   // gzip
@@ -132,15 +155,8 @@ pub fn process_nbt_file(path: &Path, uuid_map: &HashMap<Uuid, Uuid>) -> Result<(
 
     // println!("[TEST] {} {}", serde_json::from_str::<serde_json::Value>(&cow).is_err(), path.display());
 
-    if path.extension().unwrap_or_default() == "snbt" {
-        println!(
-            "[SNBT TEST] {} {:?}",
-            path.display(),
-            quartz_nbt::snbt::parse(&cow)
-        );
-    }
-
-    if serde_json::from_str::<serde_json::Value>(&cow).is_err()
+    if max_bracket_depth(&cow) <= MAX_NBT_DEPTH
+        && serde_json::from_str::<serde_json::Value>(&cow).is_err()
         && let Ok(mut snbt) = quartz_nbt::snbt::parse(&cow)
     {
         println!("[SNBT] {}", path.display());
@@ -215,6 +231,27 @@ pub fn process_mca_file(mca_path: &Path, uuid_map: &HashMap<Uuid, Uuid>) -> Resu
     new_region.write(&mut writer)?;
     writer.flush()?;
 
+    Ok(())
+}
+
+#[test]
+fn bracket_depth() {
+    assert_eq!(max_bracket_depth(""), 0);
+    assert_eq!(max_bracket_depth("{a:[1,2],b:[3]}"), 2);
+    assert_eq!(max_bracket_depth("]]]{["), 2);
+    assert_eq!(max_bracket_depth(&"[".repeat(1000)), 1000);
+}
+
+#[test]
+fn deeply_nested_text_is_skipped() -> Result<()> {
+    // 没有深度预检时，SNBT 解析这种文件会直接栈溢出
+    let path = std::env::temp_dir().join("uuid_remap_deep_nest_test.snbt");
+    fs::write(&path, "[".repeat(1_000_000))?;
+
+    let result = process_nbt_file(&path, &HashMap::new());
+    fs::remove_file(&path)?;
+
+    assert!(result.is_err());
     Ok(())
 }
 

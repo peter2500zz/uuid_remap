@@ -278,6 +278,14 @@ async fn import_uuid_map(path: PathBuf) -> Result<HashMap<Uuid, Uuid>, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // quartz_nbt 的解析/序列化是递归实现，rayon 工作线程默认栈只有 2MiB，
+    // 深层 NBT 会在工作线程上栈溢出，这里加大栈并命名线程方便定位崩溃
+    rayon::ThreadPoolBuilder::new()
+        .stack_size(64 * 1024 * 1024)
+        .thread_name(|i| format!("rayon-worker-{i}"))
+        .build_global()
+        .expect("初始化 rayon 线程池失败");
+
     tauri::Builder::default()
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_dialog::init())
