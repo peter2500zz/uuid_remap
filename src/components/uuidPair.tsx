@@ -3,8 +3,8 @@ import { isValidUUID, isUuidDuplicated, isMappingReady, normalizeUUID, UuidPair 
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { cachePlayerName } from "../utils/getAvatar";
 import { fetch } from '@tauri-apps/plugin-http';
-import UuidTool from "./uuidTool";
-import { useMemo } from "react";
+import UuidTool, { CalculatorRequest } from "./uuidTool";
+import { useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import toast from "react-hot-toast";
 
@@ -15,10 +15,11 @@ function uuidErrorMessage(uuid: string, isDuplicated: boolean): string | null {
     return null;
 }
 
-function AvatarAndInput({ showAvatar, uuid, onChange }: {
+function AvatarAndInput({ showAvatar, uuid, onChange, onSendToCalculator }: {
     showAvatar: boolean;
     uuid: string;
     onChange: (newUuid: string) => void;
+    onSendToCalculator: (playerName: string) => void;
 }) {
     const { uuidPairs, playerInfoMap } = useAppContext();
     const info = playerInfoMap[uuid];
@@ -43,6 +44,12 @@ function AvatarAndInput({ showAvatar, uuid, onChange }: {
                                 </div>
                             }
                         </span>
+                        <button
+                            className="btn btn-xs btn-ghost border border-base-300"
+                            onClick={() => onSendToCalculator(info.name)}
+                        >
+                            计算
+                        </button>
                     </div>
                 ) : (
                     <div className="h-10 w-full" />
@@ -61,7 +68,11 @@ function AvatarAndInput({ showAvatar, uuid, onChange }: {
 }
 
 // 交换是双向的，左右两个 UUID 没有方向之分
-function UuidPairRow({ index, pair }: { index: number; pair: UuidPair }) {
+function UuidPairRow({ index, pair, onSendToCalculator }: {
+    index: number;
+    pair: UuidPair;
+    onSendToCalculator: (playerName: string) => void;
+}) {
     const {
         setUuidPairs,
         playerInfoMap,
@@ -102,11 +113,11 @@ function UuidPairRow({ index, pair }: { index: number; pair: UuidPair }) {
 
     return (
         <div className="relative flex flex-row items-end border-base-300 border gap-2 p-2 pr-12 rounded-xl transition-colors hover:border-base-content/20">
-            <AvatarAndInput showAvatar={showAvatarRow} uuid={leftUuid} onChange={uuid => changeSide(0, uuid)} />
+            <AvatarAndInput showAvatar={showAvatarRow} uuid={leftUuid} onChange={uuid => changeSide(0, uuid)} onSendToCalculator={onSendToCalculator} />
             <div className="tooltip tooltip-top h-10 flex items-center px-1" data-tip="两个 UUID 将互相交换">
                 <span className="font-bold text-base-content/60 select-none">↔</span>
             </div>
-            <AvatarAndInput showAvatar={showAvatarRow} uuid={rightUuid} onChange={uuid => changeSide(1, uuid)} />
+            <AvatarAndInput showAvatar={showAvatarRow} uuid={rightUuid} onChange={uuid => changeSide(1, uuid)} onSendToCalculator={onSendToCalculator} />
             {/* 锚定在卡片右上角：删除后下一张卡片顶部正好补位，连续删除时点击位置不漂移 */}
             <button
                 className="btn btn-sm btn-circle btn-ghost text-error absolute top-2 right-2"
@@ -125,6 +136,10 @@ function UuidPairs() {
         setUuidPairs,
         playerInfoMap,
     } = useAppContext();
+
+    const [calcRequest, setCalcRequest] = useState<CalculatorRequest | null>(null);
+    const sendToCalculator = (playerName: string) =>
+        setCalcRequest(prev => ({ name: playerName, seq: (prev?.seq ?? 0) + 1 }));
 
     const handleImport = async () => {
         const selected = await open({
@@ -172,18 +187,17 @@ function UuidPairs() {
 
     return (
         <div className="h-screen px-16 py-4 pb-18">
-            <div className="h-full flex flex-col overflow-y-auto pt-2 p-4 border border-base-300 bg-base-100 rounded-xl shadow-sm gap-2">
-                <div className="pt-2">
-                    <UuidTool />
-                </div>
-                <div className="flex flex-col gap-2">
+            <div className="h-full flex flex-col border border-base-300 bg-base-100 rounded-xl shadow-sm overflow-hidden">
+                {/* 计算器贴合卡片顶边，展开的面板覆盖在列表上方，不影响列表布局与滚动 */}
+                <UuidTool calcRequest={calcRequest} />
+                <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 p-4 pb-2">
                     {
                         uuidPairs.map((pair, index) => (
-                            <UuidPairRow key={index} index={index} pair={pair} />
+                            <UuidPairRow key={index} index={index} pair={pair} onSendToCalculator={sendToCalculator} />
                         ))
                     }
                 </div>
-                <div className="flex flex-row gap-2 px-2">
+                <div className="flex flex-row gap-2 px-4 pt-2 pb-4">
                     <div className="tooltip tooltip-right" data-tip="从一个 JSON 文件中导入 UUID 交换表">
                         <button className="btn flex-none" onClick={handleImport}>
                             导入
