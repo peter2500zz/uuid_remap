@@ -2,8 +2,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from '@tauri-apps/plugin-dialog';
 import { useRef } from "react";
 import { useAppContext, WorldPathState } from "../utils/context";
-import { cachePlayerName } from "../utils/getAvatar";
+import { cachePlayerByUuid, cachePlayerName } from "../utils/getAvatar";
+import { normalizeUUID } from "../utils/uuidUtils";
 import { dirname } from "@tauri-apps/api/path";
+import toast from "react-hot-toast";
 
 
 interface UserCache {
@@ -96,17 +98,24 @@ function FolderSelect() {
     };
 
     const fetchPlayerData = async (dir: string) => {
-        try {
-            const playerData: string[] = await invoke(
-                "read_player_data",
-                { dirPath: `${dir}/playerdata` }
-            );
-            console.log("读取到的playerData:", playerData);
-            return playerData;
-        } catch (error) {
-            console.error("读取playerdata失败:", error);
-            return [];
+        // 新版存档的玩家数据在 players/data，旧版在 playerdata，按顺序尝试
+        for (const subdir of ["players/data", "playerdata"]) {
+            try {
+                const playerData: string[] = await invoke(
+                    "read_player_data",
+                    { dirPath: `${dir}/${subdir}` }
+                );
+                if (playerData.length > 0) {
+                    console.log(`从 ${subdir} 读取到的playerData:`, playerData);
+                    return playerData;
+                }
+            } catch (error) {
+                console.warn(`读取 ${subdir} 失败:`, error);
+            }
         }
+
+        toast.error("未能从 players/data 或 playerdata 读取到玩家数据");
+        return [];
     }
 
     const fetchAll = async (dir: string) => {
@@ -119,6 +128,11 @@ function FolderSelect() {
         caches.forEach(cache => {
             cachePlayerName(cache.name, cache.uuid, setPlayerInfoMap);
         });
+        // usercache 没覆盖到的扫描 UUID，尝试反查在线玩家信息
+        const cachedUuids = new Set(caches.map(c => normalizeUUID(c.uuid) ?? c.uuid));
+        playerData
+            .filter(uuid => !cachedUuids.has(normalizeUUID(uuid) ?? uuid))
+            .forEach(uuid => cachePlayerByUuid(uuid, setPlayerInfoMap));
         // 交换列表全量覆盖
         const allUuids = new Set([
             ...caches.map(c => c.uuid),

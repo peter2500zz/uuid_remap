@@ -1,8 +1,7 @@
 import { useAppContext } from "../utils/context";
 import { isValidUUID, isUuidDuplicated, isMappingReady, normalizeUUID, UuidPair } from "../utils/uuidUtils";
 import { open, save } from '@tauri-apps/plugin-dialog';
-import { cachePlayerName } from "../utils/getAvatar";
-import { fetch } from '@tauri-apps/plugin-http';
+import { cachePlayerByUuid } from "../utils/getAvatar";
 import UuidTool, { CalculatorRequest } from "./uuidTool";
 import { useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -90,13 +89,7 @@ function UuidPairRow({ index, pair, onSendToCalculator }: {
         const normalized = normalizeUUID(uuid);
         if (!normalized || playerInfoMap[normalized]) return;
 
-        console.log(`Find new valid UUID: ${normalized}, fetching player name and avatar...`);
-        fetch(`https://sessionserver.mojang.com/session/minecraft/profile/${normalized}`)
-            .then(res => res.ok ? res.json().catch(() => console.warn(`Not a online player: ${normalized}`)) : null)
-            .then(data => {
-                if (!data) return;
-                cachePlayerName(data.name, null, setPlayerInfoMap);
-            });
+        cachePlayerByUuid(normalized, setPlayerInfoMap);
     };
 
     const changeSide = (side: 0 | 1, uuid: string) => {

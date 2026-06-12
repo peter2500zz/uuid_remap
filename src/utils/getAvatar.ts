@@ -110,6 +110,26 @@ async function getPlayerAvatar(uuid: string): Promise<string | null> {
     return await overlayImageRegions(details.textures.SKIN.url);
 }
 
+// 通过 UUID 反查在线玩家并缓存其信息；离线/未知 UUID 查不到，安静返回
+async function cachePlayerByUuid(
+    uuid: string,
+    setPlayerInfoMap: Dispatch<SetStateAction<PlayerInfoMap>>
+) {
+    const normalized = normalizeUUID(uuid);
+    if (!normalized) return;
+
+    try {
+        const response = await fetch(`https://sessionserver.mojang.com/session/minecraft/profile/${normalized}`);
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!data?.name) return;
+
+        await cachePlayerName(data.name, normalized, setPlayerInfoMap);
+    } catch (error) {
+        console.warn(`通过 UUID 查询玩家信息失败: ${normalized}`, error);
+    }
+}
+
 async function cachePlayerName(
     playerName: string,
     specifiedUuid: string | null,
@@ -144,4 +164,4 @@ async function cachePlayerName(
     });
 }
 
-export { getPlayerAvatar, getUuidByName, cachePlayerName };
+export { getPlayerAvatar, getUuidByName, cachePlayerName, cachePlayerByUuid };
