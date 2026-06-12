@@ -1,16 +1,7 @@
-pub mod utils;
+use std::{collections::HashMap, path::Path};
 
-use rayon::iter::{ParallelBridge, ParallelIterator};
-use remapper::{
-    content_replace::swap_uuids_in_file,
-    mca_file::{process_mca_file, process_nbt_file},
-    rename_file::iter_folder_and_replace,
-};
-use std::collections::HashMap;
+use remapper::world::process_world;
 use uuid::Uuid;
-use walkdir::WalkDir;
-
-use crate::utils::{assert_no_chain_or_cycle, create_reverse_map};
 
 fn main() {
     // quartz_nbt 的解析/序列化是递归实现，rayon 工作线程默认栈只有 2MiB，
@@ -31,52 +22,13 @@ fn main() {
         //     Uuid::parse_str("ffffffff-ffff-ffff-ffff-ffffffffffff").unwrap(),
         // ),
     ]);
-    assert_no_chain_or_cycle(&uuid_map);
-    let reverse_map = create_reverse_map(&uuid_map);
 
-    let start_time = std::time::Instant::now();
-
-    // 遍历文件
-    let _: Vec<_> = WalkDir::new(r"C:\Users\27978\Downloads\新建文件夹\serverold\")
-        .max_depth(255)
-        .into_iter()
-        .flatten()
-        .par_bridge()
-        .map(|entry| {
-            let path = entry.path();
-            if path.exists() && path.is_file() {
-                if let Ok(_) = process_mca_file(path, &reverse_map) {
-                    println!(
-                        "[MCA] 成功: {}",
-                        path.file_name().unwrap().to_string_lossy()
-                    );
-                } else if let Ok(_) = process_nbt_file(path, &reverse_map) {
-                    println!(
-                        "[NBT] 成功: {}",
-                        path.file_name().unwrap().to_string_lossy()
-                    );
-                } else {
-                    match swap_uuids_in_file(path, &uuid_map) {
-                        Ok(_) => println!(
-                            "[NOR] 成功: {}",
-                            path.file_name().unwrap().to_string_lossy()
-                        ),
-                        Err(_) => {}
-                    }
-                }
-            }
-        })
-        .collect();
-
-    let duration_nbt = start_time.elapsed();
-    println!("NBT 替换耗时: {:.2?}", duration_nbt);
-
-    if let Err(e) =
-        iter_folder_and_replace(&uuid_map, r"C:\Users\27978\Downloads\新建文件夹\serverold\")
-    {
-        eprintln!("处理文件夹时出错: {}", e);
+    // CLI 模式下进度直接由库内的日志输出体现，忽略进度事件
+    if let Err(e) = process_world(
+        Path::new(r"C:\Users\27978\Downloads\新建文件夹\serverold\"),
+        &uuid_map,
+        |_event| {},
+    ) {
+        eprintln!("处理失败: {e}");
     }
-
-    let duration = start_time.elapsed();
-    println!("总耗时: {:.2?}", duration);
 }

@@ -1,15 +1,22 @@
 use std::{collections::HashMap};
 
+use anyhow::Result;
 use uuid::Uuid;
 
-pub fn assert_no_chain_or_cycle(map: &HashMap<Uuid, Uuid>) {
+pub fn ensure_no_chain_or_cycle(map: &HashMap<Uuid, Uuid>) -> Result<()> {
     for (k, v) in map {
         // 没有环：key 不能映射到自身
-        assert_ne!(k, v, "发现自环: {k} -> {v}");
+        if k == v {
+            anyhow::bail!("发现自环: {k} -> {v}");
+        }
 
         // 没有链：value 不能同时是某个 key
-        assert!(!map.contains_key(v), "发现链: {k} -> {v} -> {}", map[v]);
+        if map.contains_key(v) {
+            anyhow::bail!("发现链: {k} -> {v} -> {}", map[v]);
+        }
     }
+
+    Ok(())
 }
 
 pub fn to_u128(a: i32, b: i32, c: i32, d: i32) -> u128 {

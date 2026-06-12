@@ -1,22 +1,14 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fs::{self, File},
     io::BufReader,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
-use pathdiff::diff_paths;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use remapper::{
-    content_replace::swap_uuids_in_file,
-    mca_file::{process_mca_file, process_nbt_file},
-    rename_file::exchange_file,
-    utils::{assert_no_chain_or_cycle, create_reverse_map, uuid_swap_variants},
-};
+use remapper::world::ProgressEvent;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
-use walkdir::{DirEntry, WalkDir};
 
 #[allow(unused)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,124 +96,18 @@ async fn process_world(
     world_path: String,
     uuid_map: HashMap<Uuid, Uuid>,
 ) -> Result<(), String> {
-    let world_pathbuf = PathBuf::from(world_path);
-
-    // 如果有 server.properties 则提升
-    let target_path = if let Some(parent) = world_pathbuf.parent()
-        && parent.join("server.properties").exists()
-    {
-        parent.to_path_buf()
-    } else {
-        world_pathbuf
+    // 核心逻辑在 remapper 中，这里只负责把进度事件转发给前端
+    let emit_progress = |event: ProgressEvent| {
+        let _ = match event {
+            ProgressEvent::SetTotal(total) => app.emit("set-total", total),
+            ProgressEvent::StartPhase(phase) => app.emit("start-phase", phase),
+            ProgressEvent::StartTask(path) => app.emit("start-task", path),
+            ProgressEvent::FinishTask(path) => app.emit("finish-task", path),
+        };
     };
 
-    // TODO 改为返回错误而不是断言
-    assert_no_chain_or_cycle(&uuid_map);
-    // 反转表格是给 nbt remap 用的
-    let reverse_map = create_reverse_map(&uuid_map);
-
-    let start_time = std::time::Instant::now();
-
-    // 收集所有文件
-    let mut all_entries: Vec<DirEntry> = WalkDir::new(&target_path)
-        .max_depth(255)
-        .into_iter()
-        .flatten()
-        .collect();
-
-    // 计算总量
-    let total = (&all_entries)
-        .iter()
-        .filter_map(|entry| entry.file_type().is_file().then_some(()))
-        .collect::<Vec<_>>()
-        .len()
-        + all_entries.len();
-    println!("共发现 {} 个条目，开始处理...", total);
-
-    let _ = app.emit("set-total", total);
-    let _ = app.emit("start-phase", 0);
-
-    // NBT/文件内容 做并行处理
-    all_entries
-        .clone()
-        .into_par_iter()
-        .filter(|e| e.file_type().is_file())
-        .for_each(|entry| {
-            let path = entry.path();
-            let relative_path = diff_paths(path, &target_path).unwrap_or_else(|| path.to_path_buf());
-
-            if let Some(extension) = path.extension()
-                && vec!["jar"].contains(&extension.to_string_lossy().as_ref())
-            {
-                let _ = app.emit("finish-task", &relative_path);
-
-                return;
-            }
-
-            let _ = app.emit("start-task", &relative_path);
-
-            if process_mca_file(path, &reverse_map).is_ok() {
-                println!("[MCA] 成功: {}", entry.file_name().to_string_lossy());
-            } else if process_nbt_file(path, &reverse_map).is_ok() {
-                println!("[NBT] 成功: {}", entry.file_name().to_string_lossy());
-            } else if swap_uuids_in_file(path, &uuid_map).is_ok() {
-                println!("[NOR] 成功: {}", entry.file_name().to_string_lossy());
-            } else {
-                println!("[SKP] 跳过: {}", entry.file_name().to_string_lossy());
-            }
-
-            let _ = app.emit("finish-task", &relative_path);
-        });
-
-    println!("NBT 替换耗时: {:.2?}", start_time.elapsed());
-
-    let _ = app.emit("start-phase", 1);
-
-    let (patterns, replacements) = uuid_swap_variants(&uuid_map);
-
-    // 对于重命名需要排序文件，先深后浅，文件优先于目录，避免重命名导致的路径失效
-    all_entries.sort_unstable_by(|l, r| {
-        r.depth()
-            .cmp(&l.depth())
-            .then_with(|| r.file_type().is_file().cmp(&l.file_type().is_file()))
-    });
-
-    // 为了避免交换过的文件被重复交换，维护一个访问过的路径集合
-    let mut visited: HashSet<PathBuf> = HashSet::new();
-
-    for entry in &all_entries {
-        let path = entry.path();
-        let relative_path = diff_paths(path, &target_path).unwrap_or_else(|| path.to_path_buf());
-
-        // 检查路径是否已经被访问过
-        if visited.contains(path) {
-            let _ = app.emit("finish-task", &relative_path);
-            continue;
-        }
-        // 检查路径是否存在
-        if !path.exists() {
-            let _ = app.emit("finish-task", &relative_path);
-            continue;
-        }
-
-        let _ = app.emit("start-task", &relative_path);
-
-        let (src, dst) =
-            exchange_file(path, &patterns, &replacements).map_err(|e| e.to_string())?;
-
-        if let Some(s) = src {
-            visited.insert(s);
-        }
-        if let Some(d) = dst {
-            visited.insert(d);
-        }
-
-        let _ = app.emit("finish-task", &relative_path);
-    }
-
-    println!("总耗时: {:.2?}", start_time.elapsed());
-
-    Ok(())
+    remapper::world::process_world(Path::new(&world_path), &uuid_map, emit_progress)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
