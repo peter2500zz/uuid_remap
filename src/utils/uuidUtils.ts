@@ -1,5 +1,8 @@
 import { md5 } from "js-md5";
 
+/// 一对将被双向互换的 UUID，左右没有方向之分
+type UuidPair = [left: string, right: string];
+
 function playerNameToOfflineUUID(playerName: string): string {
     const hash = new Uint8Array(md5.array(`OfflinePlayer:${playerName}`));
 
@@ -21,4 +24,46 @@ function normalizeUUID(uuid: string | null): string | null {
     return `${clean.slice(0, 8)}-${clean.slice(8, 12)}-${clean.slice(12, 16)}-${clean.slice(16, 20)}-${clean.slice(20)}`;
 }
 
-export { playerNameToOfflineUUID, isValidUUID, normalizeUUID };
+// 检测某个 UUID 在交换列表中是否出现超过一次
+function isUuidDuplicated(uuidPairs: UuidPair[], target: string): boolean {
+    let count = 0;
+    for (const [left, right] of uuidPairs) {
+        if (left === target) count++;
+        if (right === target) count++;
+        if (count > 1) return true;
+    }
+    return false;
+}
+
+// 检测交换列表中是否存在任意重复的 UUID
+function hasDuplicates(uuidPairs: UuidPair[]): boolean {
+    const seen = new Set<string>();
+    for (const pair of uuidPairs) {
+        for (const uuid of pair) {
+            if (seen.has(uuid)) return true;
+            seen.add(uuid);
+        }
+    }
+    return false;
+}
+
+// 检测交换列表中是否存在无效 UUID
+function hasInvalidUUID(uuidPairs: UuidPair[]): boolean {
+    return uuidPairs.some(pair => pair.some(uuid => !isValidUUID(uuid)));
+}
+
+// 交换列表非空且没有重复/无效 UUID 时才可以应用
+function isMappingReady(uuidPairs: UuidPair[]): boolean {
+    return uuidPairs.length > 0 && !hasDuplicates(uuidPairs) && !hasInvalidUUID(uuidPairs);
+}
+
+export {
+    playerNameToOfflineUUID,
+    isValidUUID,
+    normalizeUUID,
+    isUuidDuplicated,
+    hasDuplicates,
+    hasInvalidUUID,
+    isMappingReady,
+};
+export type { UuidPair };

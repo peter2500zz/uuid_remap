@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from '@tauri-apps/plugin-dialog';
-import { useAppContext } from "../utils/context";
+import { useRef } from "react";
+import { useAppContext, WorldPathState } from "../utils/context";
 import { cachePlayerName } from "../utils/getAvatar";
 import { dirname } from "@tauri-apps/api/path";
 
@@ -11,14 +12,74 @@ interface UserCache {
     expiresOn: string;
 }
 
-function FolderSelect() {
+// 根据路径检测结果展示提示，以及后续操作的入口
+function PathStatusAlert({ state, onUseServerDir, onKeepWorldDir, onForceUse }: {
+    state: WorldPathState;
+    onUseServerDir: () => void;
+    onKeepWorldDir: () => void;
+    onForceUse: () => void;
+}) {
+    if (!state.path || state.type === "NotExist") {
+        return null;
+    }
 
+    switch (state.type) {
+        case "World":
+            return (
+                <div role="alert" className="alert">
+                    <span>✅ 检测到世界目录</span>
+                </div>
+            );
+        case "Server":
+            return (
+                <div role="alert" className="alert">
+                    <span>✅ 检测到服务器目录</span>
+                </div>
+            );
+        case "WorldButHasServer":
+            return (
+                <div className="flex flex-col gap-4">
+                    <div role="alert" className="alert">
+                        <span>
+                            ✅ 检测到了游戏存档，但是它似乎在一个服务器文件夹下。<br />
+                            如果这是服务器的存档，推荐选择服务器文件夹以获得更完全的处理。
+                        </span>
+                    </div>
+                    <div role="alert" className="alert flex justify-between">
+                        <span>你想要使用服务器文件夹吗？</span>
+                        <div className="flex gap-2">
+                            <button className="btn btn-sm btn-primary" onClick={onUseServerDir}>是的</button>
+                            <button className="btn btn-sm" onClick={onKeepWorldDir}>不了</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        default:
+            return (
+                <div className="flex flex-col gap-4">
+                    <div role="alert" className="alert">
+                        <span>❌ 这个目录看起来既不是存档也不是服务器文件夹。</span>
+                    </div>
+                    {state.type === "Invalid" &&
+                        <div role="alert" className="alert flex justify-between">
+                            <span>仍然使用它？</span>
+                            <button className="btn btn-sm" onClick={onForceUse}>是的</button>
+                        </div>
+                    }
+                </div>
+            );
+    }
+}
+
+function FolderSelect() {
     const {
         worldPathState,
         setWorldPathState,
-        setNameMapping,
-        setUuidMapping,
+        setPlayerInfoMap,
+        setUuidPairs,
     } = useAppContext();
+    // 输入时每个按键都会触发一次检测，用序号丢弃过期的检测结果
+    const updateSeqRef = useRef(0);
 
     const fetchCache = async (dir: string) => {
         try {
@@ -42,7 +103,6 @@ function FolderSelect() {
             );
             console.log("读取到的playerData:", playerData);
             return playerData;
-
         } catch (error) {
             console.error("读取playerdata失败:", error);
             return [];
@@ -55,127 +115,52 @@ function FolderSelect() {
             fetchPlayerData(dir),
         ]);
 
-        // namemap 增量更新
+        // 玩家信息做增量更新
         caches.forEach(cache => {
-            cachePlayerName(cache.name, cache.uuid, setNameMapping);
+            cachePlayerName(cache.name, cache.uuid, setPlayerInfoMap);
         });
-        // UUID map 使用全量覆盖
+        // 交换列表全量覆盖
         const allUuids = new Set([
             ...caches.map(c => c.uuid),
             ...playerData,
         ]);
-        setUuidMapping([...allUuids].map(uuid => [uuid, ""]));
+        setUuidPairs([...allUuids].map(uuid => [uuid, ""]));
     };
 
-    function GenerateAlert() {
-        if (!worldPathState.path || worldPathState.type === "NotExist") {
-            return (
-                <></>
-            )
-        } else {
-            if (worldPathState.type === "World") {
-                return (
-                    <div role="alert" className="alert">
-                        <span>
-                            ✅ 检测到世界目录
-                        </span>
-                    </div>
-                )
-            } else if (worldPathState.type === "WorldButHasServer") {
-                return (
-                    <div className="flex flex-col gap-4">
-                        <div role="alert" className="alert">
-                            <span>
-                                ✅ 检测到了游戏存档，但是它似乎在一个服务器文件夹下。<br />
-                                如果这是服务器的存档，推荐选择服务器文件夹以获得更完全的处理。
-                            </span>
-                        </div>
-                        <div role="alert" className="alert flex justify-between">
-                            <span>你想要使用服务器文件夹吗？</span>
-                            <div className="flex gap-2">
-                                <button className="btn btn-sm btn-primary" onClick={async () => {
-                                    setWorldPathState({
-                                        path: await dirname(worldPathState.path),
-                                        type: "Server",
-                                    })
-                                }}>是的</button><button className="btn btn-sm" onClick={() => {
-                                    setWorldPathState({
-                                        path: worldPathState.path,
-                                        type: "World",
-                                    })
-                                }}>不了</button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            } else if (worldPathState.type === "Server") {
-                return (
-                    <div role="alert" className="alert">
-                        <span>
-                            ✅ 检测到服务器目录
-                        </span>
-                    </div>
-                )
-            } else {
-                return (
-                    <div className="flex flex-col gap-4">
-                        <div role="alert" className="alert">
-                            <span>
-                                ❌ 这个目录看起来既不是存档也不是服务器文件夹。
-                            </span>
-                        </div>
-
-                        {(worldPathState.type === "Invalid") &&
-                            <div role="alert" className="alert flex justify-between">
-                                <span>仍然使用它？</span>
-                                <button className="btn btn-sm" onClick={() => {
-                                    setWorldPathState({
-                                        path: worldPathState.path,
-                                        type: "InvalidButForce",
-                                    })
-                                    fetchAll(worldPathState.path);
-                                }}>是的</button>
-                            </div>
-                        }
-
-                    </div>
-                )
-            }
-        }
-    }
-
     const updatePath = async (dir: string) => {
+        const seq = ++updateSeqRef.current;
+        const isStale = () => seq !== updateSeqRef.current;
+
         const serverResult = await invoke<[string, string] | null>("check_server_dir", { dirPath: dir });
+        if (isStale()) return;
 
         if (serverResult) {
             fetchAll(serverResult[1]);
-            setWorldPathState({
-                path: dir,
-                type: "Server",
-            });
-
-
+            setWorldPathState({ path: dir, type: "Server" });
             return;
         }
 
         const worldResult = await invoke<string | null>("check_world_dir", { dirPath: dir });
+        if (isStale()) return;
+
         if (worldResult) {
-            const doesServerExits = await invoke<[string, string] | null>("check_server_dir", { dirPath: `${dir}/../` });
+            const serverDirExists = await invoke<[string, string] | null>("check_server_dir", { dirPath: `${dir}/../` });
+            if (isStale()) return;
 
             fetchAll(worldResult);
             setWorldPathState({
                 path: dir,
-                type: doesServerExits ? "WorldButHasServer" : "World",
+                type: serverDirExists ? "WorldButHasServer" : "World",
             });
-
             return;
         }
 
-        // console.warn("既不是服务器目录也不是世界目录，标记为无效，但用户选择了使用它", dir);
+        const dirExists = await invoke<boolean>("check_dir_exist", { dirPath: dir });
+        if (isStale()) return;
 
         setWorldPathState({
             path: dir,
-            type: await invoke<boolean>("check_dir_exist", { dirPath: dir }) ? "Invalid" : "NotExist",
+            type: dirExists ? "Invalid" : "NotExist",
         });
     }
 
@@ -190,20 +175,16 @@ function FolderSelect() {
                     className="input w-full px-5 py-6 border shadow-sm"
                     placeholder="/path/to/world"
                     value={worldPathState.path}
-                    onChange={async (e) => {
+                    onChange={e => {
                         const newPath = e.target.value;
-
                         setWorldPathState(prev => ({ ...prev, path: newPath }));
-
-                        await updatePath(newPath);
+                        updatePath(newPath);
                     }}
                 />
 
                 <button
                     className="btn absolute right-2 top-1/2 -translate-y-1/2 w-20 h-10"
                     onClick={async () => {
-                        // 点按钮的时候也检查
-
                         const selected = await open({ multiple: false, directory: true });
                         if (selected) {
                             await updatePath(selected);
@@ -215,7 +196,28 @@ function FolderSelect() {
             </div>
 
             <div className="flex gap-4">
-                <GenerateAlert />
+                <PathStatusAlert
+                    state={worldPathState}
+                    onUseServerDir={async () => {
+                        setWorldPathState({
+                            path: await dirname(worldPathState.path),
+                            type: "Server",
+                        });
+                    }}
+                    onKeepWorldDir={() => {
+                        setWorldPathState({
+                            path: worldPathState.path,
+                            type: "World",
+                        });
+                    }}
+                    onForceUse={() => {
+                        setWorldPathState({
+                            path: worldPathState.path,
+                            type: "InvalidButForce",
+                        });
+                        fetchAll(worldPathState.path);
+                    }}
+                />
             </div>
         </div>
     );

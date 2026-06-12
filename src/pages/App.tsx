@@ -1,41 +1,43 @@
-import { AppContext, PlayerData, WorldPathType } from "../utils/context";
+import { AppContext, PlayerInfoMap, WorldPathState } from "../utils/context";
+import { UuidPair, isMappingReady } from "../utils/uuidUtils";
 import { useState } from "react";
 import FolderSelect from "../components/folderSelect";
-import UuidPairs, { hasDuplicates, hasInvalidUUID } from "../components/uuidPair";
+import UuidPairs from "../components/uuidPair";
 import RemapProgress from "../components/remapProgress";
-import toast, { Toaster } from "react-hot-toast";
+import { Toaster } from "react-hot-toast";
 
+const STEPS = ["选择存档", "设定交换", "应用修改"] as const;
 
 function App() {
 	const [onProgressing, setOnProgressing] = useState(false);
-	const [worldPathState, setWorldPathState] = useState({ path: "", type: "Invalid" as WorldPathType });
-	const [uuidMapping, setUuidMapping] = useState<[string, string][]>([]);
-	const [nameMapping, setNameMapping] = useState<Record<string, PlayerData>>({});
+	const [worldPathState, setWorldPathState] = useState<WorldPathState>({ path: "", type: "Invalid" });
+	const [uuidPairs, setUuidPairs] = useState<UuidPair[]>([]);
+	const [playerInfoMap, setPlayerInfoMap] = useState<PlayerInfoMap>({});
 
-	const [cur, setCur] = useState(0);
-	const canBack = [
-		false, 
-		true, 
-		!onProgressing
-	];
-	const canNext = [
-		worldPathState.type === "Server" || worldPathState.type === "World" || worldPathState.type === "WorldButHasServer" || worldPathState.type === "InvalidButForce",
-		!hasDuplicates(uuidMapping) && !hasInvalidUUID(uuidMapping) && uuidMapping.length > 0,
+	const [step, setStep] = useState(0);
+	const canGoBack = [
 		false,
-	];
+		true,
+		!onProgressing,
+	][step];
+	const canGoNext = [
+		["Server", "World", "WorldButHasServer", "InvalidButForce"].includes(worldPathState.type),
+		isMappingReady(uuidPairs),
+		false,
+	][step];
 
 	return (
 		<main className="overflow-hidden w-full" data-theme="cupcake">
 			<AppContext.Provider value={{
 				onProgressing, setOnProgressing,
 				worldPathState, setWorldPathState,
-				uuidMapping, setUuidMapping,
-				nameMapping, setNameMapping,
+				uuidPairs, setUuidPairs,
+				playerInfoMap, setPlayerInfoMap,
 			}}>
-				<div><Toaster /></div>
+				<Toaster />
 				<div
 					className="flex transition-transform duration-500 ease-in-out"
-					style={{ transform: `translateX(-${cur * 100}%)` }}
+					style={{ transform: `translateX(-${step * 100}%)` }}
 				>
 					<div className="min-w-full h-screen flex flex-col">
 						<FolderSelect />
@@ -49,29 +51,25 @@ function App() {
 				</div>
 
 				<div className="fixed bottom-0 right-0 p-4 gap-2 flex">
-					<button className="btn" onClick={() => {
-						toast("Hello World");
-					}}>
-						DEBUG
-					</button>
 					<button
-						className={`btn ${(cur === 0 || !canBack[cur]) ? "btn-disabled" : ""}`}
-						onClick={() => {
-							setCur(cur - 1);
-						}}
+						className="btn"
+						disabled={!canGoBack}
+						onClick={() => setStep(prev => prev - 1)}
 					>
 						返回
 					</button>
-					<button className={`btn btn-primary ${(cur >= canNext.length - 1 || !canNext[cur]) ? "btn-disabled" : ""}`} onClick={() => {
-						setCur(cur + 1);
-					}}>
+					<button
+						className="btn btn-primary"
+						disabled={!canGoNext}
+						onClick={() => setStep(prev => prev + 1)}
+					>
 						下一步
 					</button>
 				</div>
 				<ul className="steps fixed bottom-0 left-0 w-80 pb-1">
-					<li className={`step ${cur >= 0 ? "step-primary" : ""}`}>选择存档</li>
-					<li className={`step ${cur >= 1 ? "step-primary" : ""}`}>设定映射</li>
-					<li className={`step ${cur >= 2 ? "step-primary" : ""}`}>应用修改</li>
+					{STEPS.map((name, index) => (
+						<li key={name} className={`step ${step >= index ? "step-primary" : ""}`}>{name}</li>
+					))}
 				</ul>
 			</AppContext.Provider>
 		</main>

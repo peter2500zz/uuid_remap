@@ -1,5 +1,5 @@
 import { Dispatch, SetStateAction } from "react";
-import { PlayerData } from "./context";
+import { PlayerInfoMap } from "./context";
 import { fetch } from '@tauri-apps/plugin-http';
 import { normalizeUUID, playerNameToOfflineUUID } from "./uuidUtils";
 
@@ -113,7 +113,7 @@ async function getPlayerAvatar(uuid: string): Promise<string | null> {
 async function cachePlayerName(
     playerName: string,
     specifiedUuid: string | null,
-    setNameMapping: Dispatch<SetStateAction<Record<string, PlayerData>>>
+    setPlayerInfoMap: Dispatch<SetStateAction<PlayerInfoMap>>
 ) {
     console.log(`正在处理玩家: ${playerName}，指定 UUID: ${specifiedUuid}`);
     const realName = await normalizeName(playerName);
@@ -125,8 +125,8 @@ async function cachePlayerName(
     const avatar = normalizedOnlineUuid ? await getPlayerAvatar(normalizedOnlineUuid) : null;
     const grayscaleAvatar = avatar ? await toGrayscale(avatar) : null;
 
-    setNameMapping(prev => {
-        const updates: Record<string, PlayerData> = {};
+    setPlayerInfoMap(prev => {
+        const updates: PlayerInfoMap = {};
 
         if (normalizedOfflineUuid && (!prev[normalizedOfflineUuid] || prev[normalizedOfflineUuid].mode !== "Offline")) {
             updates[normalizedOfflineUuid] = { name: playerName, avatar: grayscaleAvatar, mode: "Offline" };
