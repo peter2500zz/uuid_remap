@@ -3,6 +3,7 @@ import { normalizeUUID, playerNameToOfflineUUID } from "../utils/uuidUtils";
 import { cachePlayerName, getUuidByName } from "../utils/getAvatar";
 import { useAppContext } from "../utils/context";
 import toast from "react-hot-toast";
+import { useI18n } from "../i18n/context";
 
 /// 来自外部（如交换列表）的计算请求，seq 用于区分对同一名字的重复请求
 interface CalculatorRequest {
@@ -25,6 +26,7 @@ function UuidTool({ calcRequest }: { calcRequest?: CalculatorRequest | null }) {
         playerInfoMap,
         setPlayerInfoMap,
     } = useAppContext();
+    const { t } = useI18n();
 
     // 换了存档之后清空计算结果
     useEffect(() => {
@@ -75,7 +77,7 @@ function UuidTool({ calcRequest }: { calcRequest?: CalculatorRequest | null }) {
 
     const copyToClipboard = (uuid: string) => {
         navigator.clipboard.writeText(uuid);
-        toast.success("已复制");
+        toast.success(t("uuidTool.copied"));
         // 复制即拿到了结果，自动收起计算器
         setIsOpen(false);
     };
@@ -91,7 +93,7 @@ function UuidTool({ calcRequest }: { calcRequest?: CalculatorRequest | null }) {
                 onClick={() => setIsOpen(prev => !prev)}
             >
                 <span className={`text-xs transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}>▶</span>
-                UUID 计算器
+                {t("uuidTool.title")}
             </button>
 
             {/* 裁剪容器：面板在其中整体滑入滑出，底部留白用于显示阴影和圆角 */}
@@ -104,43 +106,43 @@ function UuidTool({ calcRequest }: { calcRequest?: CalculatorRequest | null }) {
                     transition-all duration-300 ease-out
                     ${isOpen ? "visible translate-y-0" : "invisible -translate-y-[calc(100%+1.5rem)]"}
                 `}>
-                    <label className="label" htmlFor="uuid-tool-player-name">玩家名称</label>
+                    <label className="label" htmlFor="uuid-tool-player-name">{t("uuidTool.playerName")}</label>
                     <div className="flex flex-row gap-2">
                         <input
                             id="uuid-tool-player-name"
                             className="input input-bordered w-full flex-6"
                             type="text"
-                            placeholder="输入玩家名称"
+                            placeholder={t("uuidTool.playerNamePlaceholder")}
                             value={playerName}
                             onChange={e => setPlayerName(e.target.value)}
                             onKeyDown={e => e.key === "Enter" && calculate(playerName)}
                         />
-                        <button className="btn flex-4" onClick={() => calculate(playerName)}>计算</button>
+                        <button className="btn flex-4" onClick={() => calculate(playerName)}>{t("uuidTool.calculate")}</button>
                     </div>
 
-                    <label className="label" htmlFor="uuid-tool-online-uuid">在线UUID</label>
+                    <label className="label" htmlFor="uuid-tool-online-uuid">{t("uuidTool.onlineUuid")}</label>
                     <div className="flex gap-2 items-center">
                         <div className="flex-shrink-0">
                             {onlineAvatar
-                                ? <img className="w-8 h-8 rounded-md" src={onlineAvatar} alt="在线玩家头像" />
+                                ? <img className="w-8 h-8 rounded-md" src={onlineAvatar} alt={t("uuidTool.onlineAvatarAlt")} />
                                 : <div className={`skeleton w-8 h-8 rounded-md ${isQuerying ? "" : "animate-none"}`} aria-hidden="true" />}
                         </div>
                         <input
                             id="uuid-tool-online-uuid"
                             className="input input-bordered w-full"
                             type="text"
-                            placeholder={isQuerying ? "正在查询..." : queried && !onlineUuid ? "不存在该在线玩家" : "UUID v4"}
+                            placeholder={isQuerying ? t("uuidTool.querying") : queried && !onlineUuid ? t("uuidTool.noOnlinePlayer") : "UUID v4"}
                             value={onlineUuid}
                             readOnly
                         />
-                        <button className="btn" disabled={!onlineUuid} onClick={() => copyToClipboard(onlineUuid)}>复制</button>
+                        <button className="btn" disabled={!onlineUuid} onClick={() => copyToClipboard(onlineUuid)}>{t("uuidTool.copy")}</button>
                     </div>
 
-                    <label className="label" htmlFor="uuid-tool-offline-uuid">离线UUID</label>
+                    <label className="label" htmlFor="uuid-tool-offline-uuid">{t("uuidTool.offlineUuid")}</label>
                     <div className="flex gap-2 items-center">
                         <div className="flex-shrink-0">
                             {offlineAvatar
-                                ? <img className="w-8 h-8 rounded-md" src={offlineAvatar} alt="离线玩家头像" />
+                                ? <img className="w-8 h-8 rounded-md" src={offlineAvatar} alt={t("uuidTool.offlineAvatarAlt")} />
                                 : <div className={`skeleton w-8 h-8 rounded-md ${isQuerying ? "" : "animate-none"}`} aria-hidden="true" />}
                         </div>
                         <input
@@ -151,7 +153,7 @@ function UuidTool({ calcRequest }: { calcRequest?: CalculatorRequest | null }) {
                             value={offlineUuid}
                             readOnly
                         />
-                        <button className="btn" disabled={!offlineUuid} onClick={() => copyToClipboard(offlineUuid)}>复制</button>
+                        <button className="btn" disabled={!offlineUuid} onClick={() => copyToClipboard(offlineUuid)}>{t("uuidTool.copy")}</button>
                     </div>
                 </div>
             </div>

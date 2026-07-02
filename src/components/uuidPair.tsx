@@ -6,11 +6,13 @@ import UuidTool, { CalculatorRequest } from "./uuidTool";
 import { useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import toast from "react-hot-toast";
+import { useI18n } from "../i18n/context";
+import { TFunction } from "../i18n/translations";
 
-function uuidErrorMessage(uuid: string, isDuplicated: boolean): string | null {
-    if (!uuid) return "UUID 不能为空";
-    if (!isValidUUID(uuid)) return "无效的 UUID 格式";
-    if (isDuplicated) return "UUID 重复出现";
+function uuidErrorMessage(t: TFunction, uuid: string, isDuplicated: boolean): string | null {
+    if (!uuid) return t("uuidPair.error.empty");
+    if (!isValidUUID(uuid)) return t("uuidPair.error.invalid");
+    if (isDuplicated) return t("uuidPair.error.duplicated");
     return null;
 }
 
@@ -21,13 +23,14 @@ function AvatarAndInput({ showAvatar, uuid, onChange, onSendToCalculator }: {
     onSendToCalculator: (playerName: string) => void;
 }) {
     const { uuidPairs, playerInfoMap } = useAppContext();
+    const { t } = useI18n();
     const info = playerInfoMap[uuid];
 
     const isDuplicated = useMemo(
         () => isUuidDuplicated(uuidPairs, uuid),
         [uuidPairs, uuid]
     );
-    const error = uuidErrorMessage(uuid, isDuplicated);
+    const error = uuidErrorMessage(t, uuid, isDuplicated);
 
     return (
         <div className="flex flex-col w-full">
@@ -37,15 +40,15 @@ function AvatarAndInput({ showAvatar, uuid, onChange, onSendToCalculator }: {
                 {info?.mode === "Loading" ? (
                     <div className="flex flex-row items-center gap-2 h-10">
                         <div className="skeleton w-8 h-8 rounded-md" aria-hidden="true" />
-                        <span className="text-sm text-base-content/50">查询中...</span>
+                        <span className="text-sm text-base-content/50">{t("uuidPair.loading")}</span>
                     </div>
                 ) : info?.avatar ? (
                     <div className="flex flex-row items-center gap-2 h-10">
-                        <img className="w-8 h-8 rounded-md" src={info.avatar} alt={`${info.name} 的头像`} />
+                        <img className="w-8 h-8 rounded-md" src={info.avatar} alt={t("uuidPair.avatarAlt", { name: info.name })} />
                         <span>{info.name}
                             {
                                 info.mode === "NotMatch" &&
-                                <div className="tooltip tooltip-bottom" data-tip="与名字不匹配的 UUID">
+                                <div className="tooltip tooltip-bottom" data-tip={t("uuidPair.notMatchTooltip")}>
                                     <span className="pl-1 underline font-bold">?</span>
                                 </div>
                             }
@@ -54,7 +57,7 @@ function AvatarAndInput({ showAvatar, uuid, onChange, onSendToCalculator }: {
                             className="btn btn-xs btn-ghost border border-base-300"
                             onClick={() => onSendToCalculator(info.name)}
                         >
-                            计算
+                            {t("uuidPair.calculate")}
                         </button>
                     </div>
                 ) : null}
@@ -81,6 +84,7 @@ function UuidPairRow({ pair, onSendToCalculator }: {
         playerInfoMap,
         setPlayerInfoMap,
     } = useAppContext();
+    const { t } = useI18n();
     const { left: leftUuid, right: rightUuid } = pair;
 
     // 任意一侧有头像或正在查询时整行显示头像区，保证左右输入框对齐；
@@ -113,14 +117,14 @@ function UuidPairRow({ pair, onSendToCalculator }: {
     return (
         <div className="relative flex flex-row items-end border-base-300 border gap-2 p-2 pr-12 rounded-xl transition-colors hover:border-base-content/20">
             <AvatarAndInput showAvatar={showAvatarRow} uuid={leftUuid} onChange={uuid => changeSide("left", uuid)} onSendToCalculator={onSendToCalculator} />
-            <div className="tooltip tooltip-top h-10 flex items-center px-1" data-tip="两个 UUID 将互相交换">
+            <div className="tooltip tooltip-top h-10 flex items-center px-1" data-tip={t("uuidPair.swapTooltip")}>
                 <span className="font-bold text-base-content/60 select-none">↔</span>
             </div>
             <AvatarAndInput showAvatar={showAvatarRow} uuid={rightUuid} onChange={uuid => changeSide("right", uuid)} onSendToCalculator={onSendToCalculator} />
             {/* 锚定在卡片右上角：删除后下一张卡片顶部正好补位，连续删除时点击位置不漂移 */}
             <button
                 className="btn btn-sm btn-circle btn-ghost text-error absolute top-2 right-2"
-                aria-label="删除这一对 UUID"
+                aria-label={t("uuidPair.deleteAria")}
                 onClick={() => setUuidPairs(prev => prev.filter(p => p.id !== pair.id))}
             >
                 ✕
@@ -135,6 +139,7 @@ function UuidPairs() {
         setUuidPairs,
         playerInfoMap,
     } = useAppContext();
+    const { t } = useI18n();
 
     const [calcRequest, setCalcRequest] = useState<CalculatorRequest | null>(null);
     const sendToCalculator = (playerName: string) =>
@@ -145,10 +150,10 @@ function UuidPairs() {
             multiple: false,
             directory: false,
             filters: [{
-                name: 'JSON 文件',
+                name: t("uuidPair.jsonFiles"),
                 extensions: ['json', 'jsonc']
             }, {
-                name: '所有文件',
+                name: t("uuidPair.allFiles"),
                 extensions: ['*']
             }]
         });
@@ -157,19 +162,19 @@ function UuidPairs() {
         try {
             const uuidMap = await invoke<Record<string, string>>("import_uuid_map", { path: selected });
             setUuidPairs(prev => [...prev, ...Object.entries(uuidMap).map(([left, right]) => createUuidPair(left, right))]);
-            toast.success("导入成功");
+            toast.success(t("uuidPair.importSuccess"));
         } catch (e) {
-            toast.error(`导入失败: ${(e as Error).message || String(e)}`);
+            toast.error(t("uuidPair.importFailed", { message: (e as Error).message || String(e) }));
         }
     };
 
     const handleExport = async () => {
         const selected = await save({
             filters: [{
-                name: 'JSONC 文件',
+                name: t("uuidPair.jsoncFiles"),
                 extensions: ['jsonc']
             }, {
-                name: '所有文件',
+                name: t("uuidPair.allFiles"),
                 extensions: ['*']
             }],
             defaultPath: 'uuid_map.jsonc'
@@ -178,9 +183,9 @@ function UuidPairs() {
 
         try {
             await invoke("export_uuid_map", { uuidMap: Object.fromEntries(uuidPairs.map(p => [p.left, p.right])), nameMap: playerInfoMap, path: selected });
-            toast.success("导出成功");
+            toast.success(t("uuidPair.exportSuccess"));
         } catch (e) {
-            toast.error(`导出失败: ${(e as Error).message || String(e)}`);
+            toast.error(t("uuidPair.exportFailed", { message: (e as Error).message || String(e) }));
         }
     };
 
@@ -197,21 +202,21 @@ function UuidPairs() {
                     }
                 </div>
                 <div className="flex flex-row gap-2 px-4 pt-2 pb-4">
-                    <div className="tooltip tooltip-right" data-tip="从一个 JSON 文件中导入 UUID 交换表">
+                    <div className="tooltip tooltip-right" data-tip={t("uuidPair.importTooltip")}>
                         <button className="btn flex-none" onClick={handleImport}>
-                            导入
+                            {t("uuidPair.import")}
                         </button>
                     </div>
                     <button className="btn flex-1" onClick={() => setUuidPairs(prev => [...prev, createUuidPair()])}>
                         +
                     </button>
-                    <div className="tooltip tooltip-left" data-tip="导出 UUID 交换表，可以给 CLI 版本使用">
+                    <div className="tooltip tooltip-left" data-tip={t("uuidPair.exportTooltip")}>
                         <button
                             className={`btn flex-none ${isMappingReady(uuidPairs) ? "btn-primary" : ""}`}
                             disabled={!isMappingReady(uuidPairs)}
                             onClick={handleExport}
                         >
-                            导出
+                            {t("uuidPair.export")}
                         </button>
                     </div>
                 </div>

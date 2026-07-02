@@ -5,10 +5,12 @@ import FolderSelect from "../components/folderSelect";
 import UuidPairs from "../components/uuidPair";
 import RemapProgress from "../components/remapProgress";
 import { Toaster } from "react-hot-toast";
-
-const STEPS = ["选择存档", "设定交换", "应用修改"] as const;
+import { useI18n } from "../i18n/context";
 
 function App() {
+	const { t } = useI18n();
+	const STEPS = [t("steps.selectWorld"), t("steps.configureMapping"), t("steps.apply")];
+
 	const [onProgressing, setOnProgressing] = useState(false);
 	const [worldPathState, setWorldPathState] = useState<WorldPathState>({ path: "", type: "Invalid" });
 	const [uuidPairs, setUuidPairs] = useState<UuidPair[]>([]);
@@ -53,19 +55,19 @@ function App() {
 						disabled={!canGoBack}
 						onClick={() => setStep(prev => prev - 1)}
 					>
-						返回
+						{t("nav.back")}
 					</button>
 					<button
 						className="btn btn-primary"
 						disabled={!canGoNext}
 						onClick={() => setStep(prev => prev + 1)}
 					>
-						下一步
+						{t("nav.next")}
 					</button>
 				</div>
-				<ul className="steps fixed bottom-0 left-0 w-80 pb-1">
+				<ul className="steps fixed bottom-0 left-0 min-w-80 w-fit pb-1">
 					{STEPS.map((name, index) => (
-						<li key={name} className={`step ${step >= index ? "step-primary" : ""}`}>{name}</li>
+						<li key={name} className={`step whitespace-nowrap ${step >= index ? "step-primary" : ""}`}>{name}</li>
 					))}
 				</ul>
 			</AppContext.Provider>

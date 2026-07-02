@@ -6,6 +6,8 @@ import { cachePlayerByUuid, cachePlayerName } from "../utils/getAvatar";
 import { createUuidPair, normalizeUUID } from "../utils/uuidUtils";
 import { dirname } from "@tauri-apps/api/path";
 import toast from "react-hot-toast";
+import { useI18n } from "../i18n/context";
+import LanguageSwitcher from "./languageSwitcher";
 
 
 interface UserCache {
@@ -21,6 +23,8 @@ function PathStatusAlert({ state, onUseServerDir, onKeepWorldDir, onForceUse }: 
     onKeepWorldDir: () => void;
     onForceUse: () => void;
 }) {
+    const { t } = useI18n();
+
     if (!state.path || state.type === "NotExist") {
         return null;
     }
@@ -29,13 +33,13 @@ function PathStatusAlert({ state, onUseServerDir, onKeepWorldDir, onForceUse }: 
         case "World":
             return (
                 <div role="alert" className="alert">
-                    <span>✅ 检测到世界目录</span>
+                    <span>{t("folderSelect.worldDetected")}</span>
                 </div>
             );
         case "Server":
             return (
                 <div role="alert" className="alert">
-                    <span>✅ 检测到服务器目录</span>
+                    <span>{t("folderSelect.serverDetected")}</span>
                 </div>
             );
         case "WorldButHasServer":
@@ -43,15 +47,15 @@ function PathStatusAlert({ state, onUseServerDir, onKeepWorldDir, onForceUse }: 
                 <div className="flex flex-col gap-4">
                     <div role="alert" className="alert">
                         <span>
-                            ✅ 检测到了游戏存档，但是它似乎在一个服务器文件夹下。<br />
-                            如果这是服务器的存档，推荐选择服务器文件夹以获得更完全的处理。
+                            {t("folderSelect.worldButHasServer.line1")}<br />
+                            {t("folderSelect.worldButHasServer.line2")}
                         </span>
                     </div>
                     <div role="alert" className="alert flex justify-between">
-                        <span>你想要使用服务器文件夹吗？</span>
+                        <span>{t("folderSelect.worldButHasServer.question")}</span>
                         <div className="flex gap-2">
-                            <button className="btn btn-sm btn-primary" onClick={onUseServerDir}>是的</button>
-                            <button className="btn btn-sm" onClick={onKeepWorldDir}>不了</button>
+                            <button className="btn btn-sm btn-primary" onClick={onUseServerDir}>{t("common.yes")}</button>
+                            <button className="btn btn-sm" onClick={onKeepWorldDir}>{t("common.no")}</button>
                         </div>
                     </div>
                 </div>
@@ -60,12 +64,12 @@ function PathStatusAlert({ state, onUseServerDir, onKeepWorldDir, onForceUse }: 
             return (
                 <div className="flex flex-col gap-4">
                     <div role="alert" className="alert">
-                        <span>❌ 这个目录看起来既不是存档也不是服务器文件夹。</span>
+                        <span>{t("folderSelect.invalid.message")}</span>
                     </div>
                     {state.type === "Invalid" &&
                         <div role="alert" className="alert flex justify-between">
-                            <span>仍然使用它？</span>
-                            <button className="btn btn-sm" onClick={onForceUse}>是的</button>
+                            <span>{t("folderSelect.invalid.question")}</span>
+                            <button className="btn btn-sm" onClick={onForceUse}>{t("common.yes")}</button>
                         </div>
                     }
                 </div>
@@ -80,6 +84,7 @@ function FolderSelect() {
         setPlayerInfoMap,
         setUuidPairs,
     } = useAppContext();
+    const { t } = useI18n();
     // 输入时每个按键都会触发一次检测，用序号丢弃过期的检测结果
     const updateSeqRef = useRef(0);
 
@@ -114,7 +119,7 @@ function FolderSelect() {
             }
         }
 
-        toast.error("未能从 players/data 或 playerdata 读取到玩家数据");
+        toast.error(t("folderSelect.playerDataFetchError"));
         return [];
     }
 
@@ -179,9 +184,11 @@ function FolderSelect() {
     }
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-start pt-32 gap-6">
+        <div className="relative min-h-screen flex flex-col items-center justify-start pt-32 gap-6">
+            <LanguageSwitcher />
+
             <h1 className="text-5xl font-bold tracking-tight">
-                UUID 交换器
+                {t("folderSelect.title")}
             </h1>
 
             <div className="relative w-full max-w-xl">
@@ -205,7 +212,7 @@ function FolderSelect() {
                         }
                     }}
                 >
-                    浏览
+                    {t("folderSelect.browse")}
                 </button>
             </div>
 
