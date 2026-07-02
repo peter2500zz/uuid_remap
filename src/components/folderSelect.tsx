@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from '@tauri-apps/plugin-dialog';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { useRef } from "react";
 import { useAppContext, WorldPathState } from "../utils/context";
 import { cachePlayerByUuid, cachePlayerName } from "../utils/getAvatar";
@@ -186,6 +187,18 @@ function FolderSelect() {
     return (
         <div className="relative min-h-screen flex flex-col items-center justify-start pt-32 gap-6">
             <LanguageSwitcher />
+
+            {/* 外链不能直接靠 href 跳转，否则 webview 会在应用内导航，需经 opener 用系统浏览器打开 */}
+            <a
+                className="absolute top-4 right-4 text-sm text-base-content/60 hover:text-base-content hover:underline"
+                href="https://github.com/peter2500zz/uuid_remap"
+                onClick={e => {
+                    e.preventDefault();
+                    openUrl("https://github.com/peter2500zz/uuid_remap");
+                }}
+            >
+                @peter2500zz
+            </a>
 
             <h1 className="text-5xl font-bold tracking-tight">
                 {t("folderSelect.title")}

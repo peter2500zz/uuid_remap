@@ -1,11 +1,22 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { Locale, TFunction, translate } from "./translations";
+import { Locale, TFunction, translate, LOCALES } from "./translations";
 
 const STORAGE_KEY = "uuid_remap.locale";
 
+function isLocale(value: string | null | undefined): value is Locale {
+    return LOCALES.some(({ code }) => code === value);
+}
+
 function getInitialLocale(): Locale {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored === "en" || stored === "zh" ? stored : "en";
+    if (isLocale(stored)) return stored;
+
+    // 没有缓存过语言时按系统语言偏好自动判断，都匹配不上则回退英语
+    for (const tag of navigator.languages ?? [navigator.language]) {
+        const lang = tag?.toLowerCase().split("-")[0];
+        if (isLocale(lang)) return lang;
+    }
+    return "en";
 }
 
 interface I18nContextType {

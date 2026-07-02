@@ -1,8 +1,9 @@
-type Locale = "en" | "zh";
+type Locale = "en" | "zh" | "ja";
 
 const LOCALES: { code: Locale; label: string }[] = [
     { code: "en", label: "English" },
     { code: "zh", label: "中文" },
+    { code: "ja", label: "日本語" },
 ];
 
 const translations: Record<Locale, Record<string, string>> = {
@@ -133,6 +134,70 @@ const translations: Record<Locale, Record<string, string>> = {
         "uuidTool.copied": "已复制",
 
         "language.switcherAria": "切换语言",
+    },
+    ja: {
+        "steps.selectWorld": "セーブを選択",
+        "steps.configureMapping": "マッピングを設定",
+        "steps.apply": "変更を適用",
+        "nav.back": "戻る",
+        "nav.next": "次へ",
+
+        "folderSelect.title": "UUID 交換ツール",
+        "folderSelect.browse": "参照",
+        "folderSelect.worldDetected": "✅ ワールドディレクトリを検出しました",
+        "folderSelect.serverDetected": "✅ サーバーディレクトリを検出しました",
+        "folderSelect.worldButHasServer.line1": "✅ ゲームセーブを検出しましたが、サーバーフォルダの中にあるようです。",
+        "folderSelect.worldButHasServer.line2": "これがサーバーのセーブである場合、より完全な処理のためにサーバーフォルダの選択をおすすめします。",
+        "folderSelect.worldButHasServer.question": "サーバーフォルダを使用しますか？",
+        "folderSelect.invalid.message": "❌ このディレクトリはセーブにもサーバーフォルダにも見えません。",
+        "folderSelect.invalid.question": "それでも使用しますか？",
+        "common.yes": "はい",
+        "common.no": "いいえ",
+        "folderSelect.playerDataFetchError": "players/data または playerdata からプレイヤーデータを読み取れませんでした",
+
+        "remapProgress.start": "変換を開始",
+        "remapProgress.done": "変換が完了しました",
+        "remapProgress.summary": "{total} 件のタスクを {time} で処理しました",
+        "remapProgress.warning.line1": "変換の前に、必ずワールドセーブをバックアップしてください。",
+        "remapProgress.warning.line2": "また、データ破損を防ぐため、このワールドを使用中の Minecraft ゲーム/サーバーを終了してください。",
+        "remapProgress.warning.line3": "本ツールは変換中に発生しうる問題について責任を負いません。",
+        "remapProgress.failed": "変換に失敗しました: {message}",
+
+        "uuidPair.error.empty": "UUID は空にできません",
+        "uuidPair.error.invalid": "無効な UUID 形式です",
+        "uuidPair.error.duplicated": "UUID が重複しています",
+        "uuidPair.loading": "読み込み中...",
+        "uuidPair.avatarAlt": "{name} のアバター",
+        "uuidPair.notMatchTooltip": "名前と一致しない UUID です",
+        "uuidPair.calculate": "計算",
+        "uuidPair.swapTooltip": "この 2 つの UUID が互いに交換されます",
+        "uuidPair.deleteAria": "この UUID ペアを削除",
+        "uuidPair.jsonFiles": "JSON ファイル",
+        "uuidPair.allFiles": "すべてのファイル",
+        "uuidPair.importSuccess": "インポートに成功しました",
+        "uuidPair.importFailed": "インポートに失敗しました: {message}",
+        "uuidPair.jsoncFiles": "JSONC ファイル",
+        "uuidPair.exportSuccess": "エクスポートに成功しました",
+        "uuidPair.exportFailed": "エクスポートに失敗しました: {message}",
+        "uuidPair.importTooltip": "JSON ファイルから UUID マッピングをインポート",
+        "uuidPair.import": "インポート",
+        "uuidPair.exportTooltip": "UUID マッピングをエクスポート（CLI 版で使用可能）",
+        "uuidPair.export": "エクスポート",
+
+        "uuidTool.title": "UUID 計算機",
+        "uuidTool.playerName": "プレイヤー名",
+        "uuidTool.playerNamePlaceholder": "プレイヤー名を入力",
+        "uuidTool.calculate": "計算",
+        "uuidTool.onlineUuid": "オンライン UUID",
+        "uuidTool.onlineAvatarAlt": "オンラインプレイヤーのアバター",
+        "uuidTool.querying": "照会中...",
+        "uuidTool.noOnlinePlayer": "該当するオンラインプレイヤーが見つかりません",
+        "uuidTool.copy": "コピー",
+        "uuidTool.offlineUuid": "オフライン UUID",
+        "uuidTool.offlineAvatarAlt": "オフラインプレイヤーのアバター",
+        "uuidTool.copied": "コピーしました",
+
+        "language.switcherAria": "言語を切り替える",
     },
 };
 
