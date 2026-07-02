@@ -1,0 +1,117 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x86_64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            tauri_args: --no-bundle
+          - name: windows-aarch64
+            runner: windows-latest
+            target: aarch64-pc-windows-msvc
+            tauri_args: --no-bundle
+          - name: linux-x86_64
+            runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            tauri_args: --bundles appimage
+          - name: linux-aarch64
+            runner: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            tauri_args: --bundles appimage
+          - name: macos-aarch64
+            runner: macos-latest
+            target: aarch64-apple-darwin
+            tauri_args: --bundles app
+          - name: macos-x86_64
+            runner: macos-latest
+            target: x86_64-apple-darwin
+            tauri_args: --bundles app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.name }}
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build GUI (release)
+        run: bun tauri build --target ${{ matrix.target }} ${{ matrix.tauri_args }}
+
+      - name: Build CLI (release)
+        working-directory: src-tauri
+        run: cargo build --release --locked --package remapper --target ${{ matrix.target }}
+
+      - name: Collect artifacts (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir -p dist-files
+          cp "src-tauri/target/${{ matrix.target }}/release/uuid_remap.exe" "dist-files/uuid_remap-gui-${{ matrix.name }}.exe"
+          cp "src-tauri/target/${{ matrix.target }}/release/remapper.exe" "dist-files/uuid_remap-${{ matrix.name }}.exe"
+
+      - name: Collect artifacts (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p dist-files
+          cp src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage "dist-files/uuid_remap-gui-${{ matrix.name }}.AppImage"
+          cp "src-tauri/target/${{ matrix.target }}/release/remapper" "dist-files/uuid_remap-${{ matrix.name }}"
+
+      - name: Collect artifacts (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p dist-files
+          ditto -c -k --sequesterRsrc --keepParent "src-tauri/target/${{ matrix.target }}/release/bundle/macos/uuid_remap.app" "dist-files/uuid_remap-gui-${{ matrix.name }}.app.zip"
+          cp "src-tauri/target/${{ matrix.target }}/release/remapper" "dist-files/uuid_remap-${{ matrix.name }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uuid_remap-${{ matrix.name }}
+          path: dist-files/*
+          if-no-files-found: error
+
+  release:
+    name: Create release
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: uuid_remap-*
+          merge-multiple: true
+          path: artifacts
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
