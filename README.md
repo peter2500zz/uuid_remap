@@ -34,6 +34,12 @@ Neither the GUI nor the CLI requires an internet connection, but with internet a
 
 #### GUI
 
+If you are on macOS, the system will claim the downloaded `.app` "is damaged and can't be opened" the first time you open it, because the GUI build is not signed or notarized by Apple. The file is not actually damaged — run the following command in a terminal to lift the quarantine, and it will open normally:
+
+```bash
+xattr -cr <path/to/uuid_remap.app>
+```
+
 1. Select the world directory
 
 Pick the save folder with the "Browse" button, or type the path in manually. If you can access the server, selecting the server folder directly is recommended.
