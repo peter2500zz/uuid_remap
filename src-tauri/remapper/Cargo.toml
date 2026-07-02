@@ -1,0 +1,20 @@
+[package]
+name = "remapper"
+description = "The core library for the UUID remapping tool, also can run in CLI mode."
+authors = ["peter2500zz"]
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+aho-corasick = "1.1.4"
+anyhow = "1.0.102"
+chardetng = "1.0.0"
+clap = { version = "4.6.1", features = ["derive"] }
+content_inspector = "0.2.4"
+encoding_rs = "0.8.35"
+mca = "2.1.2"
+quartz_nbt = "0.2.9"
+rayon = "1.11.0"
+serde_jsonc = "1.0.108"
+uuid = { version = "1.22.0", features = ["v4", "serde"] }
+walkdir = "2.5.0"
