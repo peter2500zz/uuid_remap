@@ -1,6 +1,14 @@
+<div align="center">
+
+<img src="src-tauri/icons/icon.png" width="128" alt="uuid_remap icon" />
+
 ## UUID Remapper
 
+[![Tauri](https://img.shields.io/badge/Tauri-2-FFC131?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app) [![mca](https://img.shields.io/badge/mca-2.1.2-44903F?style=for-the-badge&logo=rust&logoColor=white)](https://crates.io/crates/mca) [![quartz_nbt](https://img.shields.io/badge/quartz__nbt-0.2.9-5C6BC0?style=for-the-badge&logo=rust&logoColor=white)](https://crates.io/crates/quartz_nbt)
+
 [EN](README.md) | [中文](README_ZH.md)
+
+</div>
 
 uuid_remap is a tool for batch-replacing UUIDs in Minecraft world saves. It can be used to fix the problem where inventories, pets, advancements and other data no longer match up after player UUIDs change due to a change of the server's `online_mode` setting. The tool also works on UUIDs that don't belong to players.
 
@@ -62,7 +70,7 @@ Here is an example JSONC file, exported by the GUI version:
 }
 ```
 
-The swap rules are the same as in the GUI version. Note that the CLI version does not care whether duplicate UUIDs exist.
+The swap rules are the same as in the GUI version. Note that the CLI version does not care about comments or whether duplicate UUIDs exist.
 
 2. Run the conversion
 

@@ -1,6 +1,15 @@
+<div align="center">
+
+<img src="src-tauri/icons/icon.png" width="128" alt="uuid_remap icon" />
+
 ## UUID 交换器
 
+[![Tauri](https://img.shields.io/badge/Tauri-2-FFC131?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app) [![mca](https://img.shields.io/badge/mca-2.1.2-44903F?style=for-the-badge&logo=rust&logoColor=white)](https://crates.io/crates/mca) [![quartz_nbt](https://img.shields.io/badge/quartz__nbt-0.2.9-5C6BC0?style=for-the-badge&logo=rust&logoColor=white)](https://crates.io/crates/quartz_nbt)
+
+
 [EN](README.md) | [中文](README_ZH.md)
+
+</div>
 
 uuid_remap 是一个用于批量替换 Minecraft 世界存档中 UUID 的工具，可用于解决服务器 `online_mode` 设置变化后玩家 UUID 改变导致的背包、宠物、进度等数据无法对应的问题。此外，本工具对玩家以外的 UUID 也起效。
 
@@ -62,7 +71,7 @@ uuid_remap 会尝试自动检测世界中的玩家 UUID。每一行中的两个 
 }
 ```
 
-交换规则与 GUI 版本一致。请注意 CLI 版本不会关心是否存在重复 UUID。
+交换规则与 GUI 版本一致。请注意 CLI 版本不会关心注释以及是否存在重复 UUID。
 
 2. 执行转换
 
