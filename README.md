@@ -1,25 +1,115 @@
-### Minecraft服务器存档UUID转换器
-当服务器online-mode参数变化时，玩家的UUID会发生改变，这大概会让你没法用原本的背包，末影箱，还有宠物(尤其是某天转正但放不下存档的时候)</br>
-使用此插件，可以从NBT层面改变UUID，以及处理就的玩家存档。</br>
+## UUID Remapper
 
-首先需要编写一个json，用于指示UUID的变更</br>
-可以在 [Calculators/Player UUID](https://minecraft.wiki/w/Calculators/Player_UUID) 中用玩家ID快速获取离线与在线的UUID</br>
+[EN](README.md) | [中文](README_ZH.md)
 
-example.json
-```json
+uuid_remap is a tool for batch-replacing UUIDs in Minecraft world saves. It can be used to fix the problem where inventories, pets, advancements and other data no longer match up after player UUIDs change due to a change of the server's `online_mode` setting. The tool also works on UUIDs that don't belong to players.
+
+### How does it work?
+
+Following a UUID mapping table, uuid_remap walks through every file in the save or server directory and tries to identify each one as an NBT file, an MCA file, or a text file:
+
+- For NBT files, the program traverses the NBT tree and replaces any matching UUIDs found in it.
+
+- For MCA files, the program iterates over all existing chunks and performs the same replacement on the NBT data inside each chunk.
+
+- For text files, the program automatically swaps any valid UUID strings found in them.
+
+Files that cannot be identified are skipped and left unmodified.
+
+For modded saves, this tool handles most common cases as well as it can, and its file traversal is broad enough; however, since there is a huge number of mods out there, a perfect replacement of all mod data cannot be guaranteed.
+
+### Usage
+
+uuid_remap ships with both a GUI and a CLI, which you can find on the [Releases](https://github.com/peter2500zz/uuid_remap/releases) page.
+
+Neither the GUI nor the CLI requires an internet connection, but with internet access the GUI version can automatically compute UUIDs and avatars from player IDs.
+
+#### GUI
+
+1. Select the world directory
+
+Pick the save folder with the "Browse" button, or type the path in manually. If you can access the server, selecting the server folder directly is recommended.
+
+2. Configure the UUID swap rules
+
+uuid_remap tries to auto-detect the player UUIDs in the world. The two UUIDs on each row will be swapped with each other. You can also export a JSON file containing the current swap rules for use with the CLI.
+
+You can add any number of UUID swap rules yourself, but each UUID may only appear once.
+
+The two UUIDs don't need to be related — you can even swap UUIDs between different players, or enter arbitrary UUIDs if you want to.
+
+3. Run the conversion
+
+Make sure every Minecraft client and server using this save is closed. **Back up your world save** — even though the program has been tested, it may still contain unknown bugs that could corrupt your save.
+
+After you click the "Start Conversion" button, uuid_remap will automatically start processing the world folder. Do not close or quit the program before it finishes, or the world save may be corrupted.
+
+#### CLI
+
+1. Prepare a UUID mapping JSON file
+
+Prepare a JSON/JSONC file whose key-value pairs are all strings and valid UUIDs.
+
+Here is an example JSONC file, exported by the GUI version:
+
+```jsonc
 {
-    "59c66d96-d356-364a-a84e-0511b286a31b": "9db4226c-1015-40da-8fa5-4335aab896b6"
+    // Player[Online] <-> Player[Offline]
+    "bd346dd5-ac1c-427d-87e8-73bdd4bf3e13": "a01e3843-e521-3998-958a-f459800e4d11",
+
+    // Peter_2500[Online] <-> Peter_2500[Offline]
+    "9db4226c-1015-40da-8fa5-4335aab896b6": "59c66d96-d356-364a-a84e-0511b286a31b"
 }
 ```
 
-之后通过参数传入存档目录以及此UUID映射表(在这个示例中是`example.json`)
+The swap rules are the same as in the GUI version. Note that the CLI version does not care whether duplicate UUIDs exist.
 
-```shell
-./uuid_remap --world=/path/to/world --map=example.json --dry
+2. Run the conversion
+
+Make sure every Minecraft client and server using this save is closed. **Back up your world save** — even though the program has been tested, it may still contain unknown bugs that could corrupt your save.
+
+```bash
+./uuid_remap --world <path/to/save> --map <path/to/mapping.json>
 ```
 
-`--dry` 参数用于仅仅扫描可供替换的UUID，不携带此参数便会真正的替换</br>
+Do not close or quit the program before processing finishes, or the world save may be corrupted.
 
-**真正运行前请备份存档**，虽然代码已经尽可能处理了错误，但无法保证绝对可靠，也请务必在上线后测试结果(比如猫猫狗狗的主人是否正确)</br>
+### Building
 
-更多可用参数请传入`--help`获取
+Clone the project:
+
+```bash
+git clone https://github.com/peter2500zz/uuid_remap.git && cd uuid_remap
+```
+
+Install the dependencies with bun:
+
+```bash
+bun install
+```
+
+Start the development version:
+
+```bash
+bun run tauri dev
+```
+
+Build the GUI:
+
+```bash
+bun run tauri build
+```
+
+Build the CLI:
+
+```bash
+cd src-tauri && cargo build --release -p remapper
+```
+
+### Contributing
+
+Any issues and PRs are welcome — I'd really appreciate your help in improving this tool.
+
+---
+
+This project has been tested on Minecraft game versions `1.14` `1.16` `1.17` `26.1`, and works fine on my server save (about 17 GB).
