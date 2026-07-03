@@ -1,14 +1,20 @@
+mod map;
+mod process;
+
 use std::{
     collections::HashMap,
     fs::{self, File},
     io::BufReader,
     path::{Path, PathBuf},
+    sync::Mutex,
 };
 
-use remapper::world::ProgressEvent;
+use remapper::{map::SymBiMap, world::ProgressEvent};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
+
+use crate::process::process_world;
 
 #[allow(unused)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,26 +97,6 @@ fn read_player_data(dir_path: String) -> Result<Vec<Uuid>, String> {
 }
 
 #[tauri::command]
-async fn process_world(
-    app: AppHandle,
-    world_path: String,
-    uuid_map: HashMap<Uuid, Uuid>,
-) -> Result<(), String> {
-    // 核心逻辑在 remapper 中，这里只负责把进度事件转发给前端
-    let emit_progress = |event: ProgressEvent| {
-        let _ = match event {
-            ProgressEvent::SetTotal(total) => app.emit("set-total", total),
-            ProgressEvent::StartPhase(phase) => app.emit("start-phase", phase),
-            ProgressEvent::StartTask(path) => app.emit("start-task", path),
-            ProgressEvent::FinishTask(path) => app.emit("finish-task", path),
-        };
-    };
-
-    remapper::world::process_world(Path::new(&world_path), &uuid_map, emit_progress)
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
 async fn export_uuid_map(
     uuid_map: HashMap<Uuid, Uuid>,
     name_map: HashMap<Uuid, PlayerData>,
@@ -162,6 +148,19 @@ async fn import_uuid_map(path: PathBuf) -> Result<HashMap<Uuid, Uuid>, String> {
     Ok(uuid_map)
 }
 
+#[derive(Debug)]
+struct AppState {
+    pub uuid_map: Mutex<SymBiMap<Uuid>>,
+}
+
+impl AppState {
+    fn new() -> Self {
+        Self {
+            uuid_map: Mutex::new(SymBiMap::new()),
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // quartz_nbt 的解析/序列化是递归实现，rayon 工作线程默认栈只有 2MiB，
@@ -173,6 +172,7 @@ pub fn run() {
         .expect("初始化 rayon 线程池失败");
 
     tauri::Builder::default()
+        .manage(AppState::new())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())

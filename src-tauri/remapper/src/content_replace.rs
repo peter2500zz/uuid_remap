@@ -2,6 +2,7 @@ use aho_corasick::AhoCorasick;
 use anyhow::Result;
 use chardetng::{EncodingDetector, Iso2022JpDetection, Utf8Detection};
 use content_inspector::inspect;
+use serde::Serialize;
 use std::{fs, path::Path};
 use uuid::Uuid;
 
@@ -10,17 +11,25 @@ use crate::{
     utils::{atomic_overwrite, uuid_map_variants},
 };
 
+#[derive(Debug, Serialize)]
+#[serde(tag = "kind", content = "data")]
+pub enum FileContentSwapResult {
+    IsBinary,
+    NoChange,
+    Changed,
+}
+
 pub fn swap_uuids_in_string(content: &str, uuid_map: &SymBiMap<Uuid>) -> String {
     let (patterns, replacements) = uuid_map_variants(uuid_map.iter());
     let ac = AhoCorasick::new(&patterns).unwrap();
     ac.replace_all(content, &replacements)
 }
 
-pub fn swap_uuids_in_file(path: &Path, swaps: &SymBiMap<Uuid>) -> Result<()> {
+pub fn swap_uuids_in_file(path: &Path, swaps: &SymBiMap<Uuid>) -> Result<FileContentSwapResult> {
     let bytes = fs::read(path)?;
 
     if !inspect(&bytes).is_text() {
-        return Err(anyhow::anyhow!("文件是二进制文件，已跳过"));
+        return Ok(FileContentSwapResult::IsBinary);
     }
 
     let mut detector = EncodingDetector::new(Iso2022JpDetection::Allow);
@@ -37,12 +46,12 @@ pub fn swap_uuids_in_file(path: &Path, swaps: &SymBiMap<Uuid>) -> Result<()> {
     // 如果没区别就不写了
     if encoded == bytes {
         // println!("文件 {:?} 内容未发生变化，已跳过", path);
-        return Err(anyhow::anyhow!("文件内容未发生变化，已跳过"));
+        return Ok(FileContentSwapResult::NoChange);
     }
 
     atomic_overwrite(path, &encoded)?;
 
-    Ok(())
+    Ok(FileContentSwapResult::Changed)
 }
 
 // #[test]
