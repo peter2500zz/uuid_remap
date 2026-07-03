@@ -4831,7 +4831,7 @@ dependencies = [
 
 [[package]]
 name = "uuid_remap"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "java-properties",
  "rayon",

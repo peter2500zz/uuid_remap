@@ -1,11 +1,11 @@
 use aho_corasick::AhoCorasick;
 use anyhow::Result;
 use chardetng::{EncodingDetector, Iso2022JpDetection, Utf8Detection};
-use std::{collections::HashMap, fs, path::Path};
 use content_inspector::inspect;
+use std::{collections::HashMap, fs, path::Path};
 use uuid::Uuid;
 
-use crate::utils::uuid_swap_variants;
+use crate::utils::{atomic_overwrite, uuid_swap_variants};
 
 pub fn swap_uuids_in_string(content: &str, swaps: &HashMap<Uuid, Uuid>) -> String {
     let (patterns, replacements) = uuid_swap_variants(swaps);
@@ -36,13 +36,9 @@ pub fn swap_uuids_in_file(path: &Path, swaps: &HashMap<Uuid, Uuid>) -> Result<()
         // println!("文件 {:?} 内容未发生变化，已跳过", path);
         return Err(anyhow::anyhow!("文件内容未发生变化，已跳过"));
     }
-    fs::write(path, encoded.as_ref())?;
 
-    // println!(
-    //     "编码: {}，{} 对 UUID 互换完成",
-    //     encoding.name(),
-    //     swaps.len()
-    // );
+    atomic_overwrite(path, &encoded)?;
+
     Ok(())
 }
 
