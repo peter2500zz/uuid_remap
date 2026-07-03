@@ -32,17 +32,23 @@ function isValidUUID(uuid: string): boolean {
 
 function normalizeUUID(uuid: string | null): string | null {
     if (!uuid) return null;
-    const clean = uuid.replace(/-/g, "");
-    if (!/^[0-9a-f]{32}$/i.test(clean)) return null;
+    const clean = uuid.replace(/-/g, "").toLowerCase();
+    if (!/^[0-9a-f]{32}$/.test(clean)) return null;
     return `${clean.slice(0, 8)}-${clean.slice(8, 12)}-${clean.slice(12, 16)}-${clean.slice(16, 20)}-${clean.slice(20)}`;
+}
+
+// 查重前先归一化，大小写/连字符变体视为同一个 UUID，与后端 Uuid 的解析行为一致
+function canonicalUUID(uuid: string): string {
+    return normalizeUUID(uuid) ?? uuid;
 }
 
 // 检测某个 UUID 在交换列表中是否出现超过一次
 function isUuidDuplicated(uuidPairs: UuidPair[], target: string): boolean {
+    const canonTarget = canonicalUUID(target);
     let count = 0;
     for (const { left, right } of uuidPairs) {
-        if (left === target) count++;
-        if (right === target) count++;
+        if (canonicalUUID(left) === canonTarget) count++;
+        if (canonicalUUID(right) === canonTarget) count++;
         if (count > 1) return true;
     }
     return false;
@@ -53,8 +59,9 @@ function hasDuplicates(uuidPairs: UuidPair[]): boolean {
     const seen = new Set<string>();
     for (const { left, right } of uuidPairs) {
         for (const uuid of [left, right]) {
-            if (seen.has(uuid)) return true;
-            seen.add(uuid);
+            const canon = canonicalUUID(uuid);
+            if (seen.has(canon)) return true;
+            seen.add(canon);
         }
     }
     return false;

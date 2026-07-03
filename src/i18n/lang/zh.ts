@@ -42,6 +42,7 @@ const zh: Record<string, string> = {
     "uuidPair.jsoncFiles": "JSONC 文件",
     "uuidPair.exportSuccess": "导出成功",
     "uuidPair.exportFailed": "导出失败: {message}",
+    "uuidPair.commitFailed": "提交交换表失败: {message}",
     "uuidPair.importTooltip": "从一个 JSON 文件中导入 UUID 交换表",
     "uuidPair.import": "导入",
     "uuidPair.exportTooltip": "导出 UUID 交换表，可以给 CLI 版本使用",

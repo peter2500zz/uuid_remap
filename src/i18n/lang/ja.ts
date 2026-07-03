@@ -42,6 +42,7 @@ const ja: Record<string, string> = {
     "uuidPair.jsoncFiles": "JSONC ファイル",
     "uuidPair.exportSuccess": "エクスポートに成功しました",
     "uuidPair.exportFailed": "エクスポートに失敗しました: {message}",
+    "uuidPair.commitFailed": "マッピングの送信に失敗しました: {message}",
     "uuidPair.importTooltip": "JSON ファイルから UUID マッピングをインポート",
     "uuidPair.import": "インポート",
     "uuidPair.exportTooltip": "UUID マッピングをエクスポート（CLI 版で使用可能）",

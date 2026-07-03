@@ -62,7 +62,10 @@ function AvatarAndInput({ showAvatar, uuid, onChange, onSendToCalculator }: {
                     </div>
                 ) : null}
             </div>
-            <div className={error ? "tooltip tooltip-top" : ""} data-tip={error ?? undefined}>
+            {/* tooltip class 与 data-tip 属性常驻，仅切换值：动态增删 class 会让 webview
+                在已有元素上新建伪元素并从初始值（opacity:1、transform:none）跑一遍过渡，
+                表现为无关行的 tooltip 闪现后淡出、气泡水平滑入；data-tip 为空串时 daisyUI 不显示 */}
+            <div className="tooltip tooltip-top" data-tip={error ?? ""}>
                 <input
                     className={`input input-bordered w-full ${error ? "border-error" : ""}`}
                     placeholder="UUID v4"

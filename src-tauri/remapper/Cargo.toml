@@ -15,6 +15,7 @@ encoding_rs = "0.8.35"
 mca = "2.1.2"
 quartz_nbt = "0.2.9"
 rayon = "1.11.0"
+serde = { version = "1.0.228", features = ["derive"] }
 serde_jsonc = "1.0.108"
 uuid = { version = "1.22.0", features = ["v4", "serde"] }
 walkdir = "2.5.0"

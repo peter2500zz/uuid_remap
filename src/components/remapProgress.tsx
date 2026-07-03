@@ -1,7 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { useAppContext } from "../utils/context";
 import { listen } from "@tauri-apps/api/event";
+import { FinishTaskData, processWorld, processErrorText } from "../utils/ipc";
 import toast from "react-hot-toast";
 import { useI18n } from "../i18n/context";
 
@@ -31,7 +31,6 @@ function RemapProgress() {
     const {
         onProgressing, setOnProgressing,
         worldPathState,
-        uuidPairs,
     } = useAppContext();
     const { t } = useI18n();
 
@@ -79,9 +78,14 @@ function RemapProgress() {
                     setCurrentTask(event.payload);
                 }
             }),
-            listen<string>('finish-task', (event) => {
+            listen<FinishTaskData>('finish-task', (event) => {
+                const { path, result } = event.payload;
                 if (phaseRef.current === 0) {
-                    setRunningTasks(prev => prev.filter(task => task !== event.payload));
+                    setRunningTasks(prev => prev.filter(task => task !== path));
+                }
+                // 汇总面板做出来之前，异常结果先记录到控制台；Success/NoChange 只计入进度
+                if (result.kind === "Unsupported" || result.kind === "Error") {
+                    console.warn(`[${result.kind}] ${path}`, result.data);
                 }
                 setProgress(prev => ({ ...prev, done: prev.done + 1 }));
             }),
@@ -97,16 +101,14 @@ function RemapProgress() {
         startTimer();
 
         try {
-            await invoke("process_world", {
-                worldPath: worldPathState.path,
-                uuidMap: Object.fromEntries(uuidPairs.map(p => [p.left, p.right])),
-            });
+            // 交换表已在进入本页前提交到后端 state，这里只需传存档路径
+            await processWorld(worldPathState.path);
             setLastRun({
                 total: totalRef.current,
                 seconds: Math.round((Date.now() - startTimeRef.current) / 1000),
             });
         } catch (e) {
-            toast.error(t("remapProgress.failed", { message: (e as Error).message || String(e) }));
+            toast.error(t("remapProgress.failed", { message: processErrorText(e) }));
         } finally {
             stopTimer();
             setOnProgressing(false);

@@ -1,26 +1,27 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     path::{Path, PathBuf},
 };
 
 use anyhow::Result;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use serde::Serialize;
 use uuid::Uuid;
 use walkdir::{DirEntry, WalkDir};
 
 use crate::{
-    content_replace::swap_uuids_in_file,
+    content_replace::{FileContentSwapResult, swap_uuids_in_file},
+    map::SymBiMap,
     mca_file::{process_mca_file, process_nbt_file},
     rename_file::exchange_file,
-    utils::{
-        create_reverse_map, ensure_no_chain_or_cycle, ensure_no_duplicate_uuid, uuid_swap_variants,
-    },
+    utils::uuid_map_variants,
 };
 
 /// 处理过程中上报给调用方的进度事件
 ///
 /// 库本身不关心进度如何展示，GUI 可以转发为窗口事件，CLI 可以打印或忽略
-#[derive(Debug, Clone)]
+#[derive(Debug, Serialize, Clone)]
+#[serde(tag = "kind", content = "data")]
 pub enum ProgressEvent {
     /// 扫描完成，总任务数已确定
     SetTotal(usize),
@@ -29,42 +30,50 @@ pub enum ProgressEvent {
     /// 开始处理一个文件（相对于处理根目录的路径）
     StartTask(PathBuf),
     /// 一个文件处理完毕
-    FinishTask(PathBuf),
+    FinishTask(FinishTaskData),
 }
 
-/// 访问给定目录的父级目录，如果存在 server.properties 文件，则返回父级目录，否则返回 None
-pub fn resolve_target_path(path: &Path) -> Option<PathBuf> {
-    match path.parent() {
-        Some(parent) if parent.join("server.properties").exists() => Some(parent.to_path_buf()),
-        _ => None,
-    }
+#[derive(Debug, Serialize, Clone)]
+pub struct FinishTaskData {
+    path: PathBuf,
+    result: TaskResult,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(tag = "kind", content = "data")]
+pub enum TaskResult {
+    Success,
+    NoChange,
+    Unsupported(Vec<FileProcessError>),
+    Error(Vec<FileProcessError>),
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(tag = "kind", content = "data")]
+pub enum FileProcessError {
+    McaError(String),
+    NbtError(String),
+    ContentError(String),
+    RenameError(String),
 }
 
 /// 对世界/服务器目录执行完整的 UUID 互换：
 /// 先并行替换所有文件内容，再串行重命名文件
 pub fn process_world(
-    world_path: &Path,
-    uuid_map: &HashMap<Uuid, Uuid>,
+    process_path: &Path,
+    uuid_map: &SymBiMap<Uuid>,
     on_progress: impl Fn(ProgressEvent) + Sync,
 ) -> Result<()> {
-    // 检查存档是否在服务器文件夹中
-    // TODO: 自动升级应该告知用户
-    let target_path = if let Some(server_path) = resolve_target_path(world_path) {
-        server_path
-    } else {
-        world_path.to_path_buf()
-    };
-
-    ensure_no_duplicate_uuid(uuid_map)?;
-    ensure_no_chain_or_cycle(uuid_map)?;
-
-    // 反转表格是给 nbt remap 用的
-    let reverse_map = create_reverse_map(uuid_map);
+    anyhow::ensure!(
+        process_path.try_exists()?,
+        "path does not exist: {}",
+        process_path.display()
+    );
 
     let start_time = std::time::Instant::now();
 
     // 收集所有文件
-    let mut all_entries: Vec<DirEntry> = WalkDir::new(&target_path)
+    let mut all_entries: Vec<DirEntry> = WalkDir::new(&process_path)
         .max_depth(255)
         .into_iter()
         .flatten()
@@ -79,7 +88,7 @@ pub fn process_world(
     println!("共发现 {} 个条目，开始处理...", total);
 
     let relative = |path: &Path| -> PathBuf {
-        path.strip_prefix(&target_path)
+        path.strip_prefix(&process_path)
             .unwrap_or(path)
             .to_path_buf()
     };
@@ -96,7 +105,10 @@ pub fn process_world(
             let relative_path = relative(path);
 
             if path.extension().is_some_and(|ext| ext == "jar") {
-                on_progress(ProgressEvent::FinishTask(relative_path));
+                on_progress(ProgressEvent::FinishTask(FinishTaskData {
+                    path: relative_path,
+                    result: TaskResult::NoChange,
+                }));
                 return;
             }
 
@@ -104,29 +116,63 @@ pub fn process_world(
 
             let file_name = entry.file_name().to_string_lossy();
 
-            match process_mca_file(path, &reverse_map) {
-                Ok(()) => println!("[MCA] 成功: {}", file_name),
-                Err(mca_err) => match process_nbt_file(path, &reverse_map) {
-                    Ok(()) => println!("[NBT] 成功: {}", file_name),
-                    Err(nbt_err) => match swap_uuids_in_file(path, uuid_map) {
-                        Ok(()) => println!("[NOR] 成功: {}", file_name),
-                        // 跳过时把各级尝试的失败原因一并打到终端，便于排查
-                        Err(swap_err) => println!(
-                            "[SKP] 跳过: {}（mca: {mca_err} | nbt: {nbt_err} | 文本: {swap_err}）",
-                            file_name
-                        ),
-                    },
-                },
-            }
+            let result = 'foo: {
+                let mca_err = match process_mca_file(path, uuid_map) {
+                    Ok(()) => {
+                        println!("[MCA] 成功: {}", file_name);
+                        break 'foo TaskResult::Success;
+                    }
+                    Err(e) => FileProcessError::McaError(e.to_string()),
+                };
 
-            on_progress(ProgressEvent::FinishTask(relative_path));
+                let nbt_err = match process_nbt_file(path, uuid_map) {
+                    Ok(()) => {
+                        println!("[NBT] 成功: {}", file_name);
+                        break 'foo TaskResult::Success;
+                    }
+                    Err(e) => FileProcessError::NbtError(e.to_string()),
+                };
+
+                match swap_uuids_in_file(path, uuid_map) {
+                    Ok(result) => match result {
+                        FileContentSwapResult::IsBinary => {
+                            println!(
+                                "[SKP] 无法处理的文件: {}（mca: {:?} | nbt: {:?}）",
+                                file_name, mca_err, nbt_err
+                            );
+                            TaskResult::Unsupported(vec![mca_err, nbt_err])
+                        }
+                        FileContentSwapResult::NoChange => {
+                            println!("[SKP] 跳过: {}", file_name);
+                            TaskResult::NoChange
+                        }
+                        FileContentSwapResult::Changed => {
+                            println!("[NOR] 成功: {}", file_name);
+                            TaskResult::Success
+                        }
+                    },
+                    Err(e) => {
+                        println!("[ERR] 错误: {}（{:?}）", file_name, e);
+                        TaskResult::Error(vec![
+                            mca_err,
+                            nbt_err,
+                            FileProcessError::ContentError(e.to_string()),
+                        ])
+                    }
+                }
+            };
+
+            on_progress(ProgressEvent::FinishTask(FinishTaskData {
+                path: relative_path,
+                result,
+            }));
         });
 
     println!("NBT 替换耗时: {:.2?}", start_time.elapsed());
 
     on_progress(ProgressEvent::StartPhase(1));
 
-    let (patterns, replacements) = uuid_swap_variants(uuid_map);
+    let (patterns, replacements) = uuid_map_variants(uuid_map.iter());
 
     // 对于重命名需要排序文件，先深后浅，文件优先于目录，避免重命名导致的路径失效
     all_entries.sort_unstable_by(|l, r| {
@@ -144,13 +190,29 @@ pub fn process_world(
 
         // 已交换过或已不存在（被重命名走）的路径直接计入进度
         if visited.contains(path) || !path.exists() {
-            on_progress(ProgressEvent::FinishTask(relative_path));
+            on_progress(ProgressEvent::FinishTask(FinishTaskData {
+                path: relative_path,
+                result: TaskResult::NoChange,
+            }));
             continue;
         }
 
         on_progress(ProgressEvent::StartTask(relative_path.clone()));
 
-        let (src, dst) = exchange_file(path, &patterns, &replacements)?;
+        let (src, dst) = match exchange_file(path, &patterns, &replacements) {
+            Ok((src, dst)) => (src, dst),
+            Err(e) => {
+                println!(
+                    "[ERR] 重命名失败: {}（{e}）",
+                    path.file_name().unwrap_or_default().to_string_lossy()
+                );
+                on_progress(ProgressEvent::FinishTask(FinishTaskData {
+                    path: relative_path,
+                    result: TaskResult::Error(vec![FileProcessError::RenameError(e.to_string())]),
+                }));
+                continue;
+            }
+        };
 
         if let Some(s) = src {
             visited.insert(s);
@@ -159,7 +221,10 @@ pub fn process_world(
             visited.insert(d);
         }
 
-        on_progress(ProgressEvent::FinishTask(relative_path));
+        on_progress(ProgressEvent::FinishTask(FinishTaskData {
+            path: relative_path,
+            result: TaskResult::Success,
+        }));
     }
 
     println!("总耗时: {:.2?}", start_time.elapsed());
