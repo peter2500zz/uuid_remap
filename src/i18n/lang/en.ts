@@ -25,6 +25,9 @@ const en: Record<string, string> = {
     "remapProgress.warning.line2": "Also close any Minecraft game/server currently using this world, to avoid data corruption.",
     "remapProgress.warning.line3": "This tool is not responsible for any issues that may occur during the conversion.",
     "remapProgress.failed": "Conversion failed: {message}",
+    "remapProgress.tab.error": "Errors",
+    "remapProgress.tab.unsupported": "Unprocessed",
+    "remapProgress.tab.more": "…{count} more",
 
     "uuidPair.error.empty": "UUID cannot be empty",
     "uuidPair.error.invalid": "Invalid UUID format",

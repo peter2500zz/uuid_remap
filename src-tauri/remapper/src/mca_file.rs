@@ -165,7 +165,7 @@ pub fn process_nbt_file(path: &Path, uuid_map: &SymBiMap<Uuid>) -> Result<()> {
         let (encoded, _, _) = encoding.encode(&new_snbt);
         // 如果没区别就不写了
         if encoded == bytes {
-            return Err(anyhow::anyhow!("文件内容未发生变化，已跳过"));
+            return Err(anyhow::anyhow!("文件处理后无变化"));
         }
 
         atomic_overwrite(path, &encoded)?;

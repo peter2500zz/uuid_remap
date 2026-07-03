@@ -137,7 +137,7 @@ pub fn process_world(
                     Ok(result) => match result {
                         FileContentSwapResult::IsBinary => {
                             println!(
-                                "[SKP] 无法处理的文件: {}（mca: {:?} | nbt: {:?}）",
+                                "[SKP] 跳过: {}（mca: {:?} | nbt: {:?} | content: 不是文本文件）",
                                 file_name, mca_err, nbt_err
                             );
                             TaskResult::Unsupported(vec![mca_err, nbt_err])

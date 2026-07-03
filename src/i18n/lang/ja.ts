@@ -25,6 +25,9 @@ const ja: Record<string, string> = {
     "remapProgress.warning.line2": "また、データ破損を防ぐため、このワールドを使用中の Minecraft ゲーム/サーバーを終了してください。",
     "remapProgress.warning.line3": "本ツールは変換中に発生しうる問題について責任を負いません。",
     "remapProgress.failed": "変換に失敗しました: {message}",
+    "remapProgress.tab.error": "エラー",
+    "remapProgress.tab.unsupported": "未処理",
+    "remapProgress.tab.more": "…ほか {count} 件",
 
     "uuidPair.error.empty": "UUID は空にできません",
     "uuidPair.error.invalid": "無効な UUID 形式です",

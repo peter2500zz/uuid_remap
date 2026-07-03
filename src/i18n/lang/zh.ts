@@ -25,6 +25,9 @@ const zh: Record<string, string> = {
     "remapProgress.warning.line2": "同时，请关闭正在使用此世界的 Minecraft 游戏/服务器，以免造成数据损坏。",
     "remapProgress.warning.line3": "本工具不对转换过程中可能出现的问题负责。",
     "remapProgress.failed": "转换失败: {message}",
+    "remapProgress.tab.error": "错误",
+    "remapProgress.tab.unsupported": "未处理",
+    "remapProgress.tab.more": "…还有 {count} 项",
 
     "uuidPair.error.empty": "UUID 不能为空",
     "uuidPair.error.invalid": "无效的 UUID 格式",

@@ -141,6 +141,7 @@ function UuidPairs() {
         uuidPairs,
         setUuidPairs,
         playerInfoMap,
+        setPlayerInfoMap,
     } = useAppContext();
     const { t } = useI18n();
 
@@ -164,6 +165,13 @@ function UuidPairs() {
 
         try {
             const uuidMap = await invoke<Record<string, string>>("import_uuid_map", { path: selected });
+            // 与手动输入行为一致：对尚未缓存的 UUID 异步反查在线玩家信息（名字、头像）
+            for (const uuid of new Set(Object.entries(uuidMap).flat())) {
+                const normalized = normalizeUUID(uuid);
+                if (normalized && !playerInfoMap[normalized]) {
+                    cachePlayerByUuid(normalized, setPlayerInfoMap);
+                }
+            }
             setUuidPairs(prev => [...prev, ...Object.entries(uuidMap).map(([left, right]) => createUuidPair(left, right))]);
             toast.success(t("uuidPair.importSuccess"));
         } catch (e) {
