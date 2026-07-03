@@ -28,6 +28,10 @@ const en: Record<string, string> = {
     "remapProgress.tab.error": "Errors",
     "remapProgress.tab.unsupported": "Unprocessed",
     "remapProgress.tab.more": "…{count} more",
+    "remapProgress.errorKind.McaError": "MCA parsing",
+    "remapProgress.errorKind.NbtError": "NBT parsing",
+    "remapProgress.errorKind.ContentError": "Text processing",
+    "remapProgress.errorKind.RenameError": "Rename",
 
     "uuidPair.error.empty": "UUID cannot be empty",
     "uuidPair.error.invalid": "Invalid UUID format",

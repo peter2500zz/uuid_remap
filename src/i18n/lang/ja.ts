@@ -28,6 +28,10 @@ const ja: Record<string, string> = {
     "remapProgress.tab.error": "エラー",
     "remapProgress.tab.unsupported": "未処理",
     "remapProgress.tab.more": "…ほか {count} 件",
+    "remapProgress.errorKind.McaError": "MCA 解析",
+    "remapProgress.errorKind.NbtError": "NBT 解析",
+    "remapProgress.errorKind.ContentError": "テキスト処理",
+    "remapProgress.errorKind.RenameError": "リネーム",
 
     "uuidPair.error.empty": "UUID は空にできません",
     "uuidPair.error.invalid": "無効な UUID 形式です",

@@ -28,6 +28,10 @@ const zh: Record<string, string> = {
     "remapProgress.tab.error": "错误",
     "remapProgress.tab.unsupported": "未处理",
     "remapProgress.tab.more": "…还有 {count} 项",
+    "remapProgress.errorKind.McaError": "MCA 解析",
+    "remapProgress.errorKind.NbtError": "NBT 解析",
+    "remapProgress.errorKind.ContentError": "文本处理",
+    "remapProgress.errorKind.RenameError": "重命名",
 
     "uuidPair.error.empty": "UUID 不能为空",
     "uuidPair.error.invalid": "无效的 UUID 格式",

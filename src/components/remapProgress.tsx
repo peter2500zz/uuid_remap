@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAppContext } from "../utils/context";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { FileProcessError, FinishTaskData, processWorld, processErrorText } from "../utils/ipc";
 import toast from "react-hot-toast";
 import { useI18n } from "../i18n/context";
@@ -54,6 +55,14 @@ function RemapProgress() {
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const startTimeRef = useRef(0);
 
+    // 错误来源标签由前端按 kind 翻译；后端字符串（err.data）是诊断详情，保留原文。
+    // 后端新增了 kind 而词条未跟上时，t() 会原样返回键名，这里兜底显示原始 kind
+    const errorKindLabel = (kind: FileProcessError["kind"]) => {
+        const key = `remapProgress.errorKind.${kind}`;
+        const label = t(key);
+        return label === key ? kind : label;
+    };
+
     const startTimer = () => {
         startTimeRef.current = Date.now();
         setElapsed(0);
@@ -72,6 +81,21 @@ function RemapProgress() {
     useEffect(() => {
         return () => stopTimer();
     }, []);
+
+    // 处理进行中防止意外关窗损坏存档：禁用关闭按钮，并拦截其余关闭请求（如快捷键）。
+    // 注册了 close-requested 监听后关闭全权由前端裁决，handler 始终 preventDefault
+    useEffect(() => {
+        if (!onProgressing) return;
+
+        const appWindow = getCurrentWindow();
+        appWindow.setClosable(false).catch(console.warn);
+        const unlisten = appWindow.onCloseRequested(event => event.preventDefault());
+
+        return () => {
+            unlisten.then(f => f()).catch(console.warn);
+            appWindow.setClosable(true).catch(console.warn);
+        };
+    }, [onProgressing]);
 
     useEffect(() => {
         const unlisteners = [
@@ -196,7 +220,7 @@ function RemapProgress() {
                                         {issue.path}
                                         <ul className="pl-4 text-xs text-base-content/50">
                                             {issue.errors.map((err, errIndex) => (
-                                                <li key={errIndex}>{err.kind}: {err.data}</li>
+                                                <li key={errIndex}>{errorKindLabel(err.kind)}: {err.data}</li>
                                             ))}
                                         </ul>
                                     </li>
