@@ -2,16 +2,16 @@ use aho_corasick::AhoCorasick;
 use anyhow::Result;
 use chardetng::{EncodingDetector, Iso2022JpDetection, Utf8Detection};
 use content_inspector::inspect;
-use std::{collections::HashMap, fs, path::Path};
+use std::{fs, path::Path};
 use uuid::Uuid;
 
 use crate::{
     map::SymBiMap,
-    utils::{atomic_overwrite, uuid_swap_variants},
+    utils::{atomic_overwrite, uuid_map_variants},
 };
 
 pub fn swap_uuids_in_string(content: &str, uuid_map: &SymBiMap<Uuid>) -> String {
-    let (patterns, replacements) = uuid_swap_variants(uuid_map);
+    let (patterns, replacements) = uuid_map_variants(uuid_map.iter());
     let ac = AhoCorasick::new(&patterns).unwrap();
     ac.replace_all(content, &replacements)
 }

@@ -1,42 +1,7 @@
-use std::{collections::HashMap, fs, path::Path};
+use std::{fs, path::Path};
 
 use anyhow::Result;
 use uuid::Uuid;
-
-use crate::map::SymBiMap;
-
-pub fn ensure_no_chain_or_cycle(map: &HashMap<Uuid, Uuid>) -> Result<()> {
-    for (k, v) in map {
-        // 没有环：key 不能映射到自身
-        if k == v {
-            anyhow::bail!("发现自环: {k} -> {v}");
-        }
-
-        // 没有链：value 不能同时是某个 key
-        if map.contains_key(v) {
-            anyhow::bail!("发现链: {k} -> {v} -> {}", map[v]);
-        }
-    }
-
-    Ok(())
-}
-
-pub fn ensure_no_duplicate_uuid(map: &HashMap<Uuid, Uuid>) -> Result<()> {
-    let mut seen = Vec::new();
-    for (k, v) in map {
-        if seen.contains(&k) {
-            anyhow::bail!("发现重复的 UUID {}", k);
-        }
-        seen.push(&k);
-
-        if seen.contains(&v) {
-            anyhow::bail!("发现重复的 UUID {}", v);
-        }
-        seen.push(&v);
-    }
-
-    Ok(())
-}
 
 pub fn to_u128(a: i32, b: i32, c: i32, d: i32) -> u128 {
     let a = a as u32 as u128;
@@ -88,13 +53,6 @@ pub fn uuid_map_variants<'a>(
     (patterns, replacements)
 }
 
-/// 由对称映射生成双向交换的 Aho-Corasick 模式与替换串
-///
-/// [`SymBiMap::iter`] 每对自带两个方向，无需再手动补反向
-pub fn uuid_swap_variants(swaps: &SymBiMap<Uuid>) -> (Vec<String>, Vec<String>) {
-    uuid_map_variants(swaps.iter())
-}
-
 // UUID 变体生成
 fn uuid_variants(from: Uuid, to: Uuid) -> (Vec<String>, Vec<String>) {
     let from_hyphen = from.to_string();
@@ -113,14 +71,6 @@ fn uuid_variants(from: Uuid, to: Uuid) -> (Vec<String>, Vec<String>) {
     (patterns, replacements)
 }
 
-pub fn create_reverse_map(map: &HashMap<Uuid, Uuid>) -> HashMap<Uuid, Uuid> {
-    let mut reverse = HashMap::new();
-    for (k, v) in map {
-        reverse.insert(*k, *v);
-        reverse.insert(*v, *k);
-    }
-    reverse
-}
 
 pub fn atomic_overwrite(path: &Path, bytes: &[u8]) -> Result<()> {
     let mut tmp_name = path.file_name().unwrap_or_default().to_os_string();

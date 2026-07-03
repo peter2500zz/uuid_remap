@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     path::{Path, PathBuf},
 };
 
@@ -13,9 +13,7 @@ use crate::{
     map::SymBiMap,
     mca_file::{process_mca_file, process_nbt_file},
     rename_file::exchange_file,
-    utils::{
-        create_reverse_map, ensure_no_chain_or_cycle, ensure_no_duplicate_uuid, uuid_swap_variants,
-    },
+    utils::uuid_map_variants,
 };
 
 /// 处理过程中上报给调用方的进度事件
@@ -121,7 +119,7 @@ pub fn process_world(
 
     on_progress(ProgressEvent::StartPhase(1));
 
-    let (patterns, replacements) = uuid_swap_variants(uuid_map);
+    let (patterns, replacements) = uuid_map_variants(uuid_map.iter());
 
     // 对于重命名需要排序文件，先深后浅，文件优先于目录，避免重命名导致的路径失效
     all_entries.sort_unstable_by(|l, r| {

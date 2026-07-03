@@ -1,7 +1,7 @@
 mod args;
-pub mod content_replace;
+mod content_replace;
 pub mod map;
-pub mod mca_file;
-pub mod rename_file;
-pub mod utils;
+mod mca_file;
+mod rename_file;
+mod utils;
 pub mod world;
