@@ -42,6 +42,7 @@ const en: Record<string, string> = {
     "uuidPair.jsoncFiles": "JSONC Files",
     "uuidPair.exportSuccess": "Export successful",
     "uuidPair.exportFailed": "Export failed: {message}",
+    "uuidPair.commitFailed": "Failed to submit the mapping: {message}",
     "uuidPair.importTooltip": "Import a UUID mapping from a JSON file",
     "uuidPair.import": "Import",
     "uuidPair.exportTooltip": "Export the UUID mapping, usable with the CLI version",
