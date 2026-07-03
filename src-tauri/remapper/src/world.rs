@@ -10,6 +10,7 @@ use walkdir::{DirEntry, WalkDir};
 
 use crate::{
     content_replace::swap_uuids_in_file,
+    map::SymBiMap,
     mca_file::{process_mca_file, process_nbt_file},
     rename_file::exchange_file,
     utils::{
@@ -44,7 +45,7 @@ pub fn resolve_target_path(path: &Path) -> Option<PathBuf> {
 /// 先并行替换所有文件内容，再串行重命名文件
 pub fn process_world(
     world_path: &Path,
-    uuid_map: &HashMap<Uuid, Uuid>,
+    uuid_map: &SymBiMap<Uuid>,
     on_progress: impl Fn(ProgressEvent) + Sync,
 ) -> Result<()> {
     // 检查存档是否在服务器文件夹中
@@ -54,12 +55,6 @@ pub fn process_world(
     } else {
         world_path.to_path_buf()
     };
-
-    ensure_no_duplicate_uuid(uuid_map)?;
-    ensure_no_chain_or_cycle(uuid_map)?;
-
-    // 反转表格是给 nbt remap 用的
-    let reverse_map = create_reverse_map(uuid_map);
 
     let start_time = std::time::Instant::now();
 
@@ -104,9 +99,9 @@ pub fn process_world(
 
             let file_name = entry.file_name().to_string_lossy();
 
-            match process_mca_file(path, &reverse_map) {
+            match process_mca_file(path, uuid_map) {
                 Ok(()) => println!("[MCA] 成功: {}", file_name),
-                Err(mca_err) => match process_nbt_file(path, &reverse_map) {
+                Err(mca_err) => match process_nbt_file(path, uuid_map) {
                     Ok(()) => println!("[NBT] 成功: {}", file_name),
                     Err(nbt_err) => match swap_uuids_in_file(path, uuid_map) {
                         Ok(()) => println!("[NOR] 成功: {}", file_name),

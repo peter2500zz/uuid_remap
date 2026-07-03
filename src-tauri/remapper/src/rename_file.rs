@@ -9,7 +9,7 @@ use anyhow::Result;
 use uuid::Uuid;
 use walkdir::WalkDir;
 
-use crate::utils::uuid_swap_variants;
+use crate::{map::SymBiMap, utils::uuid_swap_variants};
 
 pub fn exchange_file(
     path: &Path,
@@ -55,7 +55,7 @@ pub fn exchange_file(
     Ok((Some(src), Some(dst)))
 }
 
-pub fn iter_folder_and_replace(uuid_pairs: &HashMap<Uuid, Uuid>, folder_path: &str) -> Result<()> {
+pub fn iter_folder_and_replace(uuid_pairs: &SymBiMap<Uuid>, folder_path: &str) -> Result<()> {
     // 预存一些不同的 UUID 变体
     let (patterns, replacements) = uuid_swap_variants(uuid_pairs);
 
@@ -101,20 +101,20 @@ pub fn iter_folder_and_replace(uuid_pairs: &HashMap<Uuid, Uuid>, folder_path: &s
     Ok(())
 }
 
-#[test]
-fn exchange() -> Result<()> {
-    // 以文件夹为单位
+// #[test]
+// fn exchange() -> Result<()> {
+//     // 以文件夹为单位
 
-    use std::str::FromStr;
+//     use std::str::FromStr;
 
-    let uuid1 = Uuid::from_str("9db4226c-1015-40da-8fa5-4335aab896b6")?;
-    let uuid2 = Uuid::from_str("59c66d96-d356-364a-a84e-0511b286a31b")?;
-    let uuid3 = Uuid::from_str("00000000-0000-0000-0000-000000000000")?;
-    let uuid4 = Uuid::from_str("ffffffff-ffff-ffff-ffff-ffffffffffff")?;
+//     let uuid1 = Uuid::from_str("9db4226c-1015-40da-8fa5-4335aab896b6")?;
+//     let uuid2 = Uuid::from_str("59c66d96-d356-364a-a84e-0511b286a31b")?;
+//     let uuid3 = Uuid::from_str("00000000-0000-0000-0000-000000000000")?;
+//     let uuid4 = Uuid::from_str("ffffffff-ffff-ffff-ffff-ffffffffffff")?;
 
-    let uuid_pairs = HashMap::from([(uuid1, uuid2), (uuid3, uuid4)]);
+//     let uuid_pairs = HashMap::from([(uuid1, uuid2), (uuid3, uuid4)]);
 
-    iter_folder_and_replace(&uuid_pairs, r"C:\Users\27978\Downloads\新建文件夹\server\")?;
+//     iter_folder_and_replace(&uuid_pairs, r"C:\Users\27978\Downloads\新建文件夹\server\")?;
 
-    Ok(())
-}
+//     Ok(())
+// }

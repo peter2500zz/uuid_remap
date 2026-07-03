@@ -39,6 +39,11 @@ impl<T: Eq + Hash> SymBiMap<T> {
         self.map.contains_key(key)
     }
 
+    /// 按方向迭代所有条目，每对会以 (a, b) 和 (b, a) 各出现一次。
+    pub fn iter(&self) -> impl Iterator<Item = (&T, &T)> {
+        self.map.iter()
+    }
+
     /// 用任意一端删除整对，返回 (被查的那个, 它的搭档)。
     pub fn remove(&mut self, key: &T) -> Option<(T, T)> {
         let partner = self.map.remove(key)?;
@@ -207,6 +212,19 @@ mod tests {
         // 删除后同样的元素可重新配对
         map.insert(1, 2).unwrap();
         assert_eq!(map.len(), 1);
+    }
+
+    #[test]
+    fn iter_yields_both_directions() {
+        let mut map = SymBiMap::new();
+        map.insert(1, 2).unwrap();
+        map.insert(3, 4).unwrap();
+        let entries: HashSet<(i32, i32)> = map.iter().map(|(a, b)| (*a, *b)).collect();
+        assert_eq!(entries.len(), 4);
+        assert!(entries.contains(&(1, 2)));
+        assert!(entries.contains(&(2, 1)));
+        assert!(entries.contains(&(3, 4)));
+        assert!(entries.contains(&(4, 3)));
     }
 
     #[test]

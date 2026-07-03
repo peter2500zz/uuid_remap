@@ -1,14 +1,13 @@
 mod args;
 
 use std::{
-    collections::HashMap,
     fs,
     io::{self, Write},
 };
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use remapper::world::process_world;
+use remapper::{map::SymBiMap, world::process_world};
 use uuid::Uuid;
 
 use crate::args::Args;
@@ -26,7 +25,7 @@ fn main() -> Result<()> {
 
     let map_content = fs::read_to_string(&args.map)
         .with_context(|| format!("读取映射文件 {} 失败", args.map.display()))?;
-    let uuid_map: HashMap<Uuid, Uuid> = serde_jsonc::from_str(&map_content)
+    let uuid_map: SymBiMap<Uuid> = serde_jsonc::from_str(&map_content)
         .with_context(|| format!("解析映射文件 {} 失败", args.map.display()))?;
 
     if !args.no_backup_warning {

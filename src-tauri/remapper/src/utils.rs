@@ -3,6 +3,8 @@ use std::{collections::HashMap, fs, path::Path};
 use anyhow::Result;
 use uuid::Uuid;
 
+use crate::map::SymBiMap;
+
 pub fn ensure_no_chain_or_cycle(map: &HashMap<Uuid, Uuid>) -> Result<()> {
     for (k, v) in map {
         // 没有环：key 不能映射到自身
@@ -67,10 +69,13 @@ pub fn i64pair_to_uuid4(most: i64, least: i64) -> Uuid {
     Uuid::from_u128(((most as u64 as u128) << 64) | (least as u64 as u128))
 }
 
-/// 按映射表条目原样生成 Aho-Corasick 模式与替换串，不自动补反向
+/// 按迭代到的条目原样生成 Aho-Corasick 模式与替换串，不自动补反向
 ///
-/// 如需双向交换，请传入 [`create_reverse_map`] 的结果
-pub fn uuid_map_variants(map: &HashMap<Uuid, Uuid>) -> (Vec<String>, Vec<String>) {
+/// 如需双向交换，传入 [`SymBiMap::iter`](crate::map::SymBiMap::iter)
+/// （每对自带两个方向）或 [`create_reverse_map`] 的结果
+pub fn uuid_map_variants<'a>(
+    map: impl IntoIterator<Item = (&'a Uuid, &'a Uuid)>,
+) -> (Vec<String>, Vec<String>) {
     let mut patterns = Vec::new();
     let mut replacements = Vec::new();
 
@@ -83,21 +88,11 @@ pub fn uuid_map_variants(map: &HashMap<Uuid, Uuid>) -> (Vec<String>, Vec<String>
     (patterns, replacements)
 }
 
-/// 由单向映射表生成双向交换的 Aho-Corasick 模式与替换串
-pub fn uuid_swap_variants(swaps: &HashMap<Uuid, Uuid>) -> (Vec<String>, Vec<String>) {
-    let mut patterns = Vec::new();
-    let mut replacements = Vec::new();
-
-    for (a, b) in swaps.iter() {
-        let (p_ab, r_ab) = uuid_variants(*a, *b); // A → B
-        let (p_ba, r_ba) = uuid_variants(*b, *a); // B → A
-        patterns.extend(p_ab);
-        replacements.extend(r_ab);
-        patterns.extend(p_ba);
-        replacements.extend(r_ba);
-    }
-
-    (patterns, replacements)
+/// 由对称映射生成双向交换的 Aho-Corasick 模式与替换串
+///
+/// [`SymBiMap::iter`] 每对自带两个方向，无需再手动补反向
+pub fn uuid_swap_variants(swaps: &SymBiMap<Uuid>) -> (Vec<String>, Vec<String>) {
+    uuid_map_variants(swaps.iter())
 }
 
 // UUID 变体生成
