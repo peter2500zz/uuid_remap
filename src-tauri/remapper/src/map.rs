@@ -14,7 +14,8 @@ pub struct SymBiMap<T> {
     map: HashMap<T, T>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(tag = "kind", content = "data")]
 pub enum InsertError<T> {
     /// a 或 b 已经存在于某一对中。
     Duplicate(T),
@@ -42,6 +43,20 @@ impl<T: Eq + Hash> SymBiMap<T> {
     /// 按方向迭代所有条目，每对会以 (a, b) 和 (b, a) 各出现一次。
     pub fn iter(&self) -> impl Iterator<Item = (&T, &T)> {
         self.map.iter()
+    }
+
+    /// 按对迭代，每对只出现一次，输出方向不确定。
+    pub fn iter_pairs(&self) -> impl Iterator<Item = (&T, &T)> {
+        let mut seen: HashSet<&T> = HashSet::with_capacity(self.map.len());
+        self.map.iter().filter(move |&(k, v)| {
+            // 若这一对已从另一方向输出过，跳过。
+            if seen.contains(k) || seen.contains(v) {
+                return false;
+            }
+            seen.insert(k);
+            seen.insert(v);
+            true
+        })
     }
 
     /// 用任意一端删除整对，返回 (被查的那个, 它的搭档)。
@@ -87,16 +102,8 @@ where
     where
         S: Serializer,
     {
-        // 内部每对存了 a->b 和 b->a 两条，这里每对只输出一次。
-        let mut seen: HashSet<&T> = HashSet::with_capacity(self.len());
         let mut map = serializer.serialize_map(Some(self.len()))?;
-        for (k, v) in &self.map {
-            // 若这一对已从另一方向输出过，跳过。
-            if seen.contains(k) || seen.contains(v) {
-                continue;
-            }
-            seen.insert(k);
-            seen.insert(v);
+        for (k, v) in self.iter_pairs() {
             map.serialize_entry(k, v)?;
         }
         map.end()
@@ -225,6 +232,21 @@ mod tests {
         assert!(entries.contains(&(2, 1)));
         assert!(entries.contains(&(3, 4)));
         assert!(entries.contains(&(4, 3)));
+    }
+
+    #[test]
+    fn iter_pairs_yields_each_pair_once() {
+        let mut map = SymBiMap::new();
+        map.insert(1, 2).unwrap();
+        map.insert(3, 4).unwrap();
+        // 方向不确定，归一化成 (小, 大) 再比较
+        let pairs: Vec<(i32, i32)> = map
+            .iter_pairs()
+            .map(|(&a, &b)| (a.min(b), a.max(b)))
+            .collect();
+        assert_eq!(pairs.len(), 2);
+        assert!(pairs.contains(&(1, 2)));
+        assert!(pairs.contains(&(3, 4)));
     }
 
     #[test]

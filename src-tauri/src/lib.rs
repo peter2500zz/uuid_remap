@@ -2,19 +2,20 @@ mod map;
 mod process;
 
 use std::{
-    collections::HashMap,
     fs::{self, File},
     io::BufReader,
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::Mutex,
 };
 
-use remapper::{map::SymBiMap, world::ProgressEvent};
+use remapper::map::SymBiMap;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
-use crate::process::process_world;
+use crate::{
+    map::{export_uuid_map, import_uuid_map, update_uuid_map},
+    process::process_world,
+};
 
 #[allow(unused)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,58 +97,6 @@ fn read_player_data(dir_path: String) -> Result<Vec<Uuid>, String> {
     Ok(uuids)
 }
 
-#[tauri::command]
-async fn export_uuid_map(
-    uuid_map: HashMap<Uuid, Uuid>,
-    name_map: HashMap<Uuid, PlayerData>,
-    path: PathBuf,
-) -> Result<(), String> {
-    let mut jsonc = "{".to_string();
-
-    for (index, (left_uuid, right_uuid)) in uuid_map.iter().enumerate() {
-        if index != 0 {
-            jsonc.push_str("\n");
-        }
-
-        let left_data = name_map.get(&left_uuid);
-
-        let right_data = name_map.get(&right_uuid);
-
-        if left_data.is_some() || right_data.is_some() {
-            jsonc.push_str(&format!(
-                "\n    // {} <-> {}",
-                left_data
-                    .map(|pd| format!("{}[{}]", pd.name, pd.mode))
-                    .unwrap_or("<anonymous>".into()),
-                right_data
-                    .map(|pd| format!("{}[{}]", pd.name, pd.mode))
-                    .unwrap_or("<anonymous>".into())
-            ));
-        }
-
-        jsonc.push_str(&format!(
-            "\n    \"{}\": \"{}\"{}",
-            left_uuid.to_string(),
-            right_uuid.to_string(),
-            if index < uuid_map.len() - 1 { "," } else { "" }
-        ));
-    }
-
-    jsonc.push_str("\n}");
-
-    fs::write(path, jsonc).map_err(|e| e.to_string())?;
-
-    Ok(())
-}
-
-#[tauri::command]
-async fn import_uuid_map(path: PathBuf) -> Result<HashMap<Uuid, Uuid>, String> {
-    let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    let uuid_map: HashMap<Uuid, Uuid> =
-        serde_jsonc::from_str(&content).map_err(|e| e.to_string())?;
-    Ok(uuid_map)
-}
-
 #[derive(Debug)]
 struct AppState {
     pub uuid_map: Mutex<SymBiMap<Uuid>>,
@@ -184,7 +133,8 @@ pub fn run() {
             process_world,
             check_dir_exist,
             export_uuid_map,
-            import_uuid_map
+            import_uuid_map,
+            update_uuid_map
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
