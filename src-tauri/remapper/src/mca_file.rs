@@ -12,7 +12,7 @@ use mca::{RegionReader, RegionWriter};
 use quartz_nbt::{NbtCompound, NbtTag, io::Flavor};
 use uuid::Uuid;
 
-use crate::utils::{i32s_to_uuid4, uuid4_to_i32s, uuid_map_variants};
+use crate::utils::{i32s_to_uuid4, uuid_map_variants, uuid4_to_i32s};
 
 /// Minecraft 自身的 NBT 嵌套深度上限
 const MAX_NBT_DEPTH: usize = 512;
@@ -71,13 +71,12 @@ fn process_compound(compound: &mut NbtCompound, uuid_map: &HashMap<Uuid, Uuid>) 
             && let Ok(uuid_least) = compound.get::<_, i64>(&least_key)
         {
             // 把两个 u64 拼成一个 u128，再转成 UUID
-            let old_uuid = Uuid::from_u128((uuid_most as u128) << 64 | (uuid_least as u128));
+            // test_uuid_64_to_128
+            let old_uuid =
+                Uuid::from_u128(((uuid_most as u64 as u128) << 64) | (uuid_least as u64 as u128));
 
             if let Some(&other_uuid) = uuid_map.get(&old_uuid) {
-                new_uuids.insert(
-                    most_key, 
-                    NbtTag::Long((other_uuid.as_u128() >> 64) as i64)
-                );
+                new_uuids.insert(most_key, NbtTag::Long((other_uuid.as_u128() >> 64) as i64));
                 new_uuids.insert(
                     least_key,
                     NbtTag::Long((other_uuid.as_u128() & (u128::MAX >> 64)) as i64),
@@ -234,6 +233,17 @@ pub fn process_mca_file(mca_path: &Path, uuid_map: &HashMap<Uuid, Uuid>) -> Resu
     writer.flush()?;
 
     Ok(())
+}
+
+#[test]
+fn test_uuid_64_to_128() {
+    let uuid = Uuid::parse_str("f89043ac-4df9-401d-813a-24459916827e").unwrap();
+    let most: i64 = -535853948335472611;
+    let least: i64 = -9134949012827897218;
+
+    let new_uuid = Uuid::from_u128(((most as u64 as u128) << 64) | (least as u64 as u128));
+
+    assert_eq!(uuid, new_uuid);
 }
 
 #[test]
