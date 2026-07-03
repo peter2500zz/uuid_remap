@@ -7,6 +7,7 @@
   ],
   "permissions": [
     "core:default",
+    "core:window:allow-set-closable",
     "opener:default",
     "dialog:default",
     {

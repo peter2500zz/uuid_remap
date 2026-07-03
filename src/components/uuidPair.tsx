@@ -62,7 +62,10 @@ function AvatarAndInput({ showAvatar, uuid, onChange, onSendToCalculator }: {
                     </div>
                 ) : null}
             </div>
-            <div className={error ? "tooltip tooltip-top" : ""} data-tip={error ?? undefined}>
+            {/* tooltip class 与 data-tip 属性常驻，仅切换值：动态增删 class 会让 webview
+                在已有元素上新建伪元素并从初始值（opacity:1、transform:none）跑一遍过渡，
+                表现为无关行的 tooltip 闪现后淡出、气泡水平滑入；data-tip 为空串时 daisyUI 不显示 */}
+            <div className="tooltip tooltip-top" data-tip={error ?? ""}>
                 <input
                     className={`input input-bordered w-full ${error ? "border-error" : ""}`}
                     placeholder="UUID v4"
@@ -138,6 +141,7 @@ function UuidPairs() {
         uuidPairs,
         setUuidPairs,
         playerInfoMap,
+        setPlayerInfoMap,
     } = useAppContext();
     const { t } = useI18n();
 
@@ -161,6 +165,13 @@ function UuidPairs() {
 
         try {
             const uuidMap = await invoke<Record<string, string>>("import_uuid_map", { path: selected });
+            // 与手动输入行为一致：对尚未缓存的 UUID 异步反查在线玩家信息（名字、头像）
+            for (const uuid of new Set(Object.entries(uuidMap).flat())) {
+                const normalized = normalizeUUID(uuid);
+                if (normalized && !playerInfoMap[normalized]) {
+                    cachePlayerByUuid(normalized, setPlayerInfoMap);
+                }
+            }
             setUuidPairs(prev => [...prev, ...Object.entries(uuidMap).map(([left, right]) => createUuidPair(left, right))]);
             toast.success(t("uuidPair.importSuccess"));
         } catch (e) {

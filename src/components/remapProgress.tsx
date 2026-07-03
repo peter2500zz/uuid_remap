@@ -1,13 +1,27 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { useAppContext } from "../utils/context";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { FileProcessError, FinishTaskData, processWorld, processErrorText } from "../utils/ipc";
 import toast from "react-hot-toast";
 import { useI18n } from "../i18n/context";
 
 // 阶段 0：并行处理文件内容，同时展示所有进行中的任务
 // 阶段 1：串行重命名文件，只展示当前任务
 type Phase = 0 | 1;
+
+// 有内容才出现的日志标签页：error = 处理失败，unsupported = 无法识别而未处理。
+// 与普通日志（任务实时出现/消失）不同，这些数据在转换结束后保留，直到下一次开始
+type LogTab = "error" | "unsupported";
+const LOG_TABS: LogTab[] = ["error", "unsupported"];
+
+interface TaskIssue {
+    path: string;
+    errors: FileProcessError[];
+}
+
+// 单个标签页最多渲染的条目数，防止异常文件极多时 DOM 失控
+const MAX_ISSUE_LINES = 500;
 
 function formatTime(seconds: number) {
     const h = Math.floor(seconds / 3600);
@@ -25,19 +39,29 @@ function RemapProgress() {
     const [runningTasks, setRunningTasks] = useState<string[]>([]);
     const [currentTask, setCurrentTask] = useState("");
     const [phase, setPhase] = useState<Phase>(0);
+    // 各标签页累积的异常条目；activeTab 为 null 时显示普通日志
+    const [issues, setIssues] = useState<Record<LogTab, TaskIssue[]>>({ error: [], unsupported: [] });
+    const [activeTab, setActiveTab] = useState<LogTab | null>(null);
     // 事件监听器只注册一次，需要用 ref 读取最新的阶段与总数
     const phaseRef = useRef<Phase>(0);
     const totalRef = useRef(0);
     const {
         onProgressing, setOnProgressing,
         worldPathState,
-        uuidPairs,
     } = useAppContext();
     const { t } = useI18n();
 
     const [elapsed, setElapsed] = useState(0);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const startTimeRef = useRef(0);
+
+    // 错误来源标签由前端按 kind 翻译；后端字符串（err.data）是诊断详情，保留原文。
+    // 后端新增了 kind 而词条未跟上时，t() 会原样返回键名，这里兜底显示原始 kind
+    const errorKindLabel = (kind: FileProcessError["kind"]) => {
+        const key = `remapProgress.errorKind.${kind}`;
+        const label = t(key);
+        return label === key ? kind : label;
+    };
 
     const startTimer = () => {
         startTimeRef.current = Date.now();
@@ -57,6 +81,21 @@ function RemapProgress() {
     useEffect(() => {
         return () => stopTimer();
     }, []);
+
+    // 处理进行中防止意外关窗损坏存档：禁用关闭按钮，并拦截其余关闭请求（如快捷键）。
+    // 注册了 close-requested 监听后关闭全权由前端裁决，handler 始终 preventDefault
+    useEffect(() => {
+        if (!onProgressing) return;
+
+        const appWindow = getCurrentWindow();
+        appWindow.setClosable(false).catch(console.warn);
+        const unlisten = appWindow.onCloseRequested(event => event.preventDefault());
+
+        return () => {
+            unlisten.then(f => f()).catch(console.warn);
+            appWindow.setClosable(true).catch(console.warn);
+        };
+    }, [onProgressing]);
 
     useEffect(() => {
         const unlisteners = [
@@ -79,9 +118,15 @@ function RemapProgress() {
                     setCurrentTask(event.payload);
                 }
             }),
-            listen<string>('finish-task', (event) => {
+            listen<FinishTaskData>('finish-task', (event) => {
+                const { path, result } = event.payload;
                 if (phaseRef.current === 0) {
-                    setRunningTasks(prev => prev.filter(task => task !== event.payload));
+                    setRunningTasks(prev => prev.filter(task => task !== path));
+                }
+                // 异常结果进对应标签页；Success/NoChange 只计入进度
+                if (result.kind === "Unsupported" || result.kind === "Error") {
+                    const tab: LogTab = result.kind === "Error" ? "error" : "unsupported";
+                    setIssues(prev => ({ ...prev, [tab]: [...prev[tab], { path, errors: result.data }] }));
                 }
                 setProgress(prev => ({ ...prev, done: prev.done + 1 }));
             }),
@@ -94,19 +139,20 @@ function RemapProgress() {
 
     const handleStart = async () => {
         setOnProgressing(true);
+        // 上一轮的标签页数据作废：清空并回到普通日志模式
+        setIssues({ error: [], unsupported: [] });
+        setActiveTab(null);
         startTimer();
 
         try {
-            await invoke("process_world", {
-                worldPath: worldPathState.path,
-                uuidMap: Object.fromEntries(uuidPairs.map(p => [p.left, p.right])),
-            });
+            // 交换表已在进入本页前提交到后端 state，这里只需传存档路径
+            await processWorld(worldPathState.path);
             setLastRun({
                 total: totalRef.current,
                 seconds: Math.round((Date.now() - startTimeRef.current) / 1000),
             });
         } catch (e) {
-            toast.error(t("remapProgress.failed", { message: (e as Error).message || String(e) }));
+            toast.error(t("remapProgress.failed", { message: processErrorText(e) }));
         } finally {
             stopTimer();
             setOnProgressing(false);
@@ -135,21 +181,58 @@ function RemapProgress() {
                 <div className={`
                     relative z-10 flex flex-col pt-3 p-4 border border-base-300 bg-base-100 rounded-xl shadow-sm gap-2
                     transition-[max-height] duration-500 ease-in-out overflow-hidden
-                    ${onProgressing ? "max-h-[400px]" : "max-h-24"}
+                    ${onProgressing || activeTab ? "max-h-[400px]" : "max-h-24"}
                 `}>
                     <button className="btn" disabled={onProgressing} onClick={handleStart}>
                         {t("remapProgress.start")}
                     </button>
 
                     <div>
-                        <div className="flex justify-between">
-                            <label className="label">{progress.done} / {progress.total}</label>
+                        <div className="flex justify-between items-center">
+                            {/* 进度数字与时间是固定元素，标签按钮从进度数字右侧开始出现；
+                                这一行在卡片收起时也可见，因此结束后仍可点开错误/未处理页 */}
+                            <div className="flex items-center gap-1 min-w-0">
+                                <label className="label">{progress.done} / {progress.total}</label>
+                                {/* h-5 压到与 label 行同高，避免收起态 max-h-24 裁掉进度条底部 */}
+                                {LOG_TABS.map(tab => issues[tab].length > 0 && (
+                                    <button
+                                        key={tab}
+                                        className={`
+                                            btn btn-xs h-5 ${activeTab === tab ? "btn-active" : "btn-ghost"}
+                                            ${tab === "error" ? "text-error" : "text-warning"}
+                                        `}
+                                        onClick={() => setActiveTab(prev => prev === tab ? null : tab)}
+                                    >
+                                        {t(`remapProgress.tab.${tab}`)} ({issues[tab].length})
+                                    </button>
+                                ))}
+                            </div>
                             <label className="label">{formatTime(elapsed)}</label>
                         </div>
                         <progress className="progress" value={progress.done} max={progress.total} />
                     </div>
                     <div className="h-64 overflow-auto">
-                        {
+                        {activeTab ? (
+                            // 标签页日志：转换结束后不清空，直到下一次开始
+                            <ul className="whitespace-nowrap">
+                                {issues[activeTab].slice(0, MAX_ISSUE_LINES).map((issue, index) => (
+                                    <li className="text-sm text-base-content/70" key={index}>
+                                        {issue.path}
+                                        <ul className="pl-4 text-xs text-base-content/50">
+                                            {issue.errors.map((err, errIndex) => (
+                                                <li key={errIndex}>{errorKindLabel(err.kind)}: {err.data}</li>
+                                            ))}
+                                        </ul>
+                                    </li>
+                                ))}
+                                {issues[activeTab].length > MAX_ISSUE_LINES && (
+                                    <li className="text-sm text-base-content/50">
+                                        {t("remapProgress.tab.more", { count: issues[activeTab].length - MAX_ISSUE_LINES })}
+                                    </li>
+                                )}
+                            </ul>
+                        ) : (
+                            // 普通日志模式：任务实时出现/消失，仅运行中显示
                             onProgressing && (
                                 phase === 0 ? (
                                     <ul className="whitespace-nowrap">
@@ -161,7 +244,7 @@ function RemapProgress() {
                                     <span className="whitespace-nowrap text-sm text-base-content/70">{currentTask}</span>
                                 )
                             )
-                        }
+                        )}
                     </div>
                 </div>
             </div>

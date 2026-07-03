@@ -1,10 +1,11 @@
 import { AppContext, PlayerInfoMap, WorldPathState } from "../utils/context";
 import { UuidPair, isMappingReady } from "../utils/uuidUtils";
-import { useState } from "react";
+import { updateUuidMap, updateErrorText } from "../utils/ipc";
+import { useRef, useState } from "react";
 import FolderSelect from "../components/folderSelect";
 import UuidPairs from "../components/uuidPair";
 import RemapProgress from "../components/remapProgress";
-import { Toaster } from "react-hot-toast";
+import toast, { Toaster } from "react-hot-toast";
 import { useI18n } from "../i18n/context";
 
 function App() {
@@ -17,6 +18,8 @@ function App() {
 	const [playerInfoMap, setPlayerInfoMap] = useState<PlayerInfoMap>({});
 
 	const [step, setStep] = useState(0);
+	// 提交进行中时忽略重复点击，防止双击把步骤推进两次
+	const commitInFlight = useRef(false);
 	const canGoBack = [
 		false,
 		true,
@@ -27,6 +30,24 @@ function App() {
 		isMappingReady(uuidPairs),
 		false,
 	][step];
+
+	// 离开交换设定页前把草稿全量提交到后端 state（转换用的是后端持有的映射）。
+	// 格式/重复问题已被本地校验拦下，这里的失败只是两边判定不一致时的兜底
+	const goNext = async () => {
+		if (step === 1) {
+			if (commitInFlight.current) return;
+			commitInFlight.current = true;
+			try {
+				await updateUuidMap(uuidPairs);
+			} catch (e) {
+				toast.error(t("uuidPair.commitFailed", { message: updateErrorText(e) }));
+				return;
+			} finally {
+				commitInFlight.current = false;
+			}
+		}
+		setStep(prev => prev + 1);
+	};
 
 	return (
 		<main className="overflow-hidden w-full" data-theme="cupcake">
@@ -60,7 +81,7 @@ function App() {
 					<button
 						className="btn btn-primary"
 						disabled={!canGoNext}
-						onClick={() => setStep(prev => prev + 1)}
+						onClick={goNext}
 					>
 						{t("nav.next")}
 					</button>

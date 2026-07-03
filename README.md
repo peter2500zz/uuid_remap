@@ -76,7 +76,7 @@ Here is an example JSONC file, exported by the GUI version:
 }
 ```
 
-The swap rules are the same as in the GUI version. Note that the CLI version does not care about comments or whether duplicate UUIDs exist.
+The swap rules are the same as in the GUI version. Note that the CLI version does not care about comments.
 
 2. Run the conversion
 

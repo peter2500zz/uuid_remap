@@ -1,23 +1,7 @@
-use std::{collections::HashMap};
+use std::{fs, path::Path};
 
 use anyhow::Result;
 use uuid::Uuid;
-
-pub fn ensure_no_chain_or_cycle(map: &HashMap<Uuid, Uuid>) -> Result<()> {
-    for (k, v) in map {
-        // 没有环：key 不能映射到自身
-        if k == v {
-            anyhow::bail!("发现自环: {k} -> {v}");
-        }
-
-        // 没有链：value 不能同时是某个 key
-        if map.contains_key(v) {
-            anyhow::bail!("发现链: {k} -> {v} -> {}", map[v]);
-        }
-    }
-
-    Ok(())
-}
 
 pub fn to_u128(a: i32, b: i32, c: i32, d: i32) -> u128 {
     let a = a as u32 as u128;
@@ -46,10 +30,17 @@ pub fn uuid4_to_i32s(uuid: Uuid) -> [i32; 4] {
     from_u128(uuid.as_u128())
 }
 
-/// 按映射表条目原样生成 Aho-Corasick 模式与替换串，不自动补反向
+pub fn i64pair_to_uuid4(most: i64, least: i64) -> Uuid {
+    Uuid::from_u128(((most as u64 as u128) << 64) | (least as u64 as u128))
+}
+
+/// 按迭代到的条目原样生成 Aho-Corasick 模式与替换串，不自动补反向
 ///
-/// 如需双向交换，请传入 [`create_reverse_map`] 的结果
-pub fn uuid_map_variants(map: &HashMap<Uuid, Uuid>) -> (Vec<String>, Vec<String>) {
+/// 如需双向交换，传入 [`SymBiMap::iter`](crate::map::SymBiMap::iter)
+/// （每对自带两个方向）或 [`create_reverse_map`] 的结果
+pub fn uuid_map_variants<'a>(
+    map: impl IntoIterator<Item = (&'a Uuid, &'a Uuid)>,
+) -> (Vec<String>, Vec<String>) {
     let mut patterns = Vec::new();
     let mut replacements = Vec::new();
 
@@ -57,23 +48,6 @@ pub fn uuid_map_variants(map: &HashMap<Uuid, Uuid>) -> (Vec<String>, Vec<String>
         let (p, r) = uuid_variants(*from, *to);
         patterns.extend(p);
         replacements.extend(r);
-    }
-
-    (patterns, replacements)
-}
-
-/// 由单向映射表生成双向交换的 Aho-Corasick 模式与替换串
-pub fn uuid_swap_variants(swaps: &HashMap<Uuid, Uuid>) -> (Vec<String>, Vec<String>) {
-    let mut patterns = Vec::new();
-    let mut replacements = Vec::new();
-
-    for (a, b) in swaps.iter() {
-        let (p_ab, r_ab) = uuid_variants(*a, *b); // A → B
-        let (p_ba, r_ba) = uuid_variants(*b, *a); // B → A
-        patterns.extend(p_ab);
-        replacements.extend(r_ab);
-        patterns.extend(p_ba);
-        replacements.extend(r_ba);
     }
 
     (patterns, replacements)
@@ -97,11 +71,13 @@ fn uuid_variants(from: Uuid, to: Uuid) -> (Vec<String>, Vec<String>) {
     (patterns, replacements)
 }
 
-pub fn create_reverse_map(map: &HashMap<Uuid, Uuid>) -> HashMap<Uuid, Uuid> {
-    let mut reverse = HashMap::new();
-    for (k, v) in map {
-        reverse.insert(*k, *v);
-        reverse.insert(*v, *k);
-    }
-    reverse
+
+pub fn atomic_overwrite(path: &Path, bytes: &[u8]) -> Result<()> {
+    let mut tmp_name = path.file_name().unwrap_or_default().to_os_string();
+    tmp_name.push(".uuid_remap_tmp");
+    let tmp = path.with_file_name(tmp_name);
+
+    fs::write(&tmp, bytes)?;
+    fs::rename(&tmp, path)?;
+    Ok(())
 }
