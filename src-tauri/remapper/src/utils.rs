@@ -19,6 +19,23 @@ pub fn ensure_no_chain_or_cycle(map: &HashMap<Uuid, Uuid>) -> Result<()> {
     Ok(())
 }
 
+pub fn ensure_no_duplicate_uuid(map: &HashMap<Uuid, Uuid>) -> Result<()> {
+    let mut seen = Vec::new();
+    for (k, v) in map {
+        if seen.contains(&k) {
+            anyhow::bail!("发现重复的 UUID {}", k);
+        }
+        seen.push(&k);
+
+        if seen.contains(&v) {
+            anyhow::bail!("发现重复的 UUID {}", v);
+        }
+        seen.push(&v);
+    }
+
+    Ok(())
+}
+
 pub fn to_u128(a: i32, b: i32, c: i32, d: i32) -> u128 {
     let a = a as u32 as u128;
     let b = b as u32 as u128;

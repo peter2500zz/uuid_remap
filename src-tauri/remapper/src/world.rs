@@ -12,7 +12,9 @@ use crate::{
     content_replace::swap_uuids_in_file,
     mca_file::{process_mca_file, process_nbt_file},
     rename_file::exchange_file,
-    utils::{create_reverse_map, ensure_no_chain_or_cycle, uuid_swap_variants},
+    utils::{
+        create_reverse_map, ensure_no_chain_or_cycle, ensure_no_duplicate_uuid, uuid_swap_variants,
+    },
 };
 
 /// 处理过程中上报给调用方的进度事件
@@ -30,11 +32,11 @@ pub enum ProgressEvent {
     FinishTask(PathBuf),
 }
 
-/// 如果世界目录在服务器目录下，则提升为服务器目录以获得更完全的处理
-pub fn resolve_target_path(world_path: &Path) -> PathBuf {
-    match world_path.parent() {
-        Some(parent) if parent.join("server.properties").exists() => parent.to_path_buf(),
-        _ => world_path.to_path_buf(),
+/// 访问给定目录的父级目录，如果存在 server.properties 文件，则返回父级目录，否则返回 None
+pub fn resolve_target_path(path: &Path) -> Option<PathBuf> {
+    match path.parent() {
+        Some(parent) if parent.join("server.properties").exists() => Some(parent.to_path_buf()),
+        _ => None,
     }
 }
 
@@ -45,9 +47,17 @@ pub fn process_world(
     uuid_map: &HashMap<Uuid, Uuid>,
     on_progress: impl Fn(ProgressEvent) + Sync,
 ) -> Result<()> {
-    let target_path = resolve_target_path(world_path);
+    // 检查存档是否在服务器文件夹中
+    // TODO: 自动升级应该告知用户
+    let target_path = if let Some(server_path) = resolve_target_path(world_path) {
+        server_path
+    } else {
+        world_path.to_path_buf()
+    };
 
+    ensure_no_duplicate_uuid(uuid_map)?;
     ensure_no_chain_or_cycle(uuid_map)?;
+
     // 反转表格是给 nbt remap 用的
     let reverse_map = create_reverse_map(uuid_map);
 
@@ -61,11 +71,17 @@ pub fn process_world(
         .collect();
 
     // 第一阶段只处理文件，第二阶段处理所有条目
-    let total = all_entries.iter().filter(|e| e.file_type().is_file()).count() + all_entries.len();
+    let total = all_entries
+        .iter()
+        .filter(|e| e.file_type().is_file())
+        .count()
+        + all_entries.len();
     println!("共发现 {} 个条目，开始处理...", total);
 
     let relative = |path: &Path| -> PathBuf {
-        path.strip_prefix(&target_path).unwrap_or(path).to_path_buf()
+        path.strip_prefix(&target_path)
+            .unwrap_or(path)
+            .to_path_buf()
     };
 
     on_progress(ProgressEvent::SetTotal(total));
