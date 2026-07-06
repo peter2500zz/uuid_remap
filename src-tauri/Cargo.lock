@@ -3192,6 +3192,7 @@ dependencies = [
  "clap",
  "content_inspector",
  "encoding_rs",
+ "infer",
  "mca",
  "quartz_nbt",
  "rayon",

@@ -29,7 +29,7 @@ pub fn exchange_file(
     let dst = parent.join(new_name);
 
     if src.exists() && dst.exists() {
-        let tmp = parent.join(format!("{}.tmp", file_name));
+        let tmp = parent.join(format!("{}.uuid_remap_tmp", file_name));
         println!(
             "[SWP] 交换文件：{} <-> {}",
             src.file_name().unwrap_or_default().to_string_lossy(),

@@ -14,7 +14,7 @@ use crate::{
     map::SymBiMap,
     mca_file::{process_mca_file, process_nbt_file},
     rename_file::exchange_file,
-    utils::uuid_map_variants,
+    utils::{can_skip_this_file, uuid_map_variants},
 };
 
 /// 处理过程中上报给调用方的进度事件
@@ -104,11 +104,17 @@ pub fn process_world(
             let path = entry.path();
             let relative_path = relative(path);
 
-            if path.extension().is_some_and(|ext| ext == "jar") {
+            if let Some(extension) = can_skip_this_file(path) {
+                if extension == "uuid_remap_tmp" {
+                    println!("[WARN] 警告，检测到临时文件: {}", relative_path.display());
+                } else {
+                    println!("[IGNORE] 忽略: {}", relative_path.display());
+                }
                 on_progress(ProgressEvent::FinishTask(FinishTaskData {
                     path: relative_path,
                     result: TaskResult::NoChange,
                 }));
+
                 return;
             }
 
