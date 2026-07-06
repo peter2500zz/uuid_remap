@@ -12,6 +12,7 @@ chardetng = "1.0.0"
 clap = { version = "4.6.1", features = ["derive"] }
 content_inspector = "0.2.4"
 encoding_rs = "0.8.35"
+infer = "0.19.0"
 mca = "2.1.2"
 quartz_nbt = "0.2.9"
 rayon = "1.11.0"
