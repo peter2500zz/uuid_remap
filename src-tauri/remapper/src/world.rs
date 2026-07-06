@@ -105,10 +105,8 @@ pub fn process_world(
             let relative_path = relative(path);
 
             if path.extension().is_some_and(|ext| ext == "jar") {
-                on_progress(ProgressEvent::FinishTask(FinishTaskData {
-                    path: relative_path,
-                    result: TaskResult::NoChange,
-                }));
+                println!("[SKP] 跳过: {}", relative_path.display());
+                // todo!("not only for jar, but also for zip, mcpack, mctemplate, etc. (all are zip format)");
                 return;
             }
 
