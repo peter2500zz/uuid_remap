@@ -96,7 +96,7 @@ pub fn can_skip_this_file(path: &Path) -> Option<String> {
     };
 
     // 可以跳过的归档文件类型
-    let archives_ext = vec!["gz", "jar", "zip", "7z", "xz"];
+    let archives_ext = vec!["gz", "jar", "zip", "7z", "xz", "tar", "rar", "bz2"];
 
     // 获取文件扩展名
     let extension = path
@@ -114,9 +114,11 @@ pub fn can_skip_this_file(path: &Path) -> Option<String> {
     match (file_type.matcher_type(), extension.as_str()) {
         // 临时文件
         (_, "uuid_remap_tmp") => Some(extension),
+        // TODO: MCC 在 mca 2.1.2 中会直接 panic，暂时跳过
+        (_, "mcc") => Some(extension),
         // 根据扩展名判断，因为 dat 文件的 magic number 是归档文件，但必须处理
         (MatcherType::Archive, ext) if archives_ext.contains(&ext) => Some(extension),
-        // 这些文件一半不会存储字符串形式的 UUID
+        // 这些文件一般不会存储字符串形式的 UUID
         (
             MatcherType::App
             | MatcherType::Audio
