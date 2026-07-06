@@ -4,7 +4,7 @@
 
 ## UUID 交换器
 
-[![Tauri](https://img.shields.io/badge/Tauri-2-FFC131?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app) [![mca](https://img.shields.io/badge/mca-2.1.2-44903F?style=for-the-badge&logo=rust&logoColor=white)](https://crates.io/crates/mca) [![quartz_nbt](https://img.shields.io/badge/quartz__nbt-0.2.9-5C6BC0?style=for-the-badge&logo=rust&logoColor=white)](https://crates.io/crates/quartz_nbt)
+[![Tauri](https://img.shields.io/badge/Tauri-2-FFC131?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app) [![daisyUI](https://img.shields.io/badge/daisyUI-5.5.23-1AD1A5?style=for-the-badge&logo=daisyui&logoColor=white)](https://daisyui.com) [![mca](https://img.shields.io/badge/mca-2.1.2-44903F?style=for-the-badge&logo=rust&logoColor=white)](https://crates.io/crates/mca) [![quartz_nbt](https://img.shields.io/badge/quartz__nbt-0.2.9-5C6BC0?style=for-the-badge&logo=rust&logoColor=white)](https://crates.io/crates/quartz_nbt)
 
 
 [EN](README.md) | [中文](README_ZH.md)
@@ -81,13 +81,9 @@ uuid_remap 会尝试自动检测世界中的玩家 UUID。每一行中的两个 
 
 2. 执行转换
 
-确保关闭所有正在使用这个存档的 Minecraft 客户端与服务器。**请备份你的世界存档**，尽管通过了测试，程序仍然可能存在未知的 BUG，并导致存档损坏。
-
 ```bash
 ./uuid_remap --world <存档路径> --map <JSON 映射文件路径>
 ```
-
-在处理完毕前，请不要关闭或退出程序，否则世界存档将可能损坏。
 
 ### 构建
 

@@ -4,7 +4,7 @@
 
 ## UUID Remapper
 
-[![Tauri](https://img.shields.io/badge/Tauri-2-FFC131?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app) [![mca](https://img.shields.io/badge/mca-2.1.2-44903F?style=for-the-badge&logo=rust&logoColor=white)](https://crates.io/crates/mca) [![quartz_nbt](https://img.shields.io/badge/quartz__nbt-0.2.9-5C6BC0?style=for-the-badge&logo=rust&logoColor=white)](https://crates.io/crates/quartz_nbt)
+[![Tauri](https://img.shields.io/badge/Tauri-2-FFC131?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app) [![daisyUI](https://img.shields.io/badge/daisyUI-5.5.23-1AD1A5?style=for-the-badge&logo=daisyui&logoColor=white)](https://daisyui.com) [![mca](https://img.shields.io/badge/mca-2.1.2-44903F?style=for-the-badge&logo=rust&logoColor=white)](https://crates.io/crates/mca) [![quartz_nbt](https://img.shields.io/badge/quartz__nbt-0.2.9-5C6BC0?style=for-the-badge&logo=rust&logoColor=white)](https://crates.io/crates/quartz_nbt)
 
 [EN](README.md) | [中文](README_ZH.md)
 
@@ -80,13 +80,9 @@ The swap rules are the same as in the GUI version. Note that the CLI version doe
 
 2. Run the conversion
 
-Make sure every Minecraft client and server using this save is closed. **Back up your world save** — even though the program has been tested, it may still contain unknown bugs that could corrupt your save.
-
 ```bash
 ./uuid_remap --world <path/to/save> --map <path/to/mapping.json>
 ```
-
-Do not close or quit the program before processing finishes, or the world save may be corrupted.
 
 ### Building
 
